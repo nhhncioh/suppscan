@@ -94,3 +94,13 @@ body{
   .split{flex-direction:column}
   .split .left{flex-basis:auto}
 }
+@media print {
+  body { background: white !important; }
+  .drop, .split .left .row .btn-ghost { display: none !important; }
+  .btn, .card { box-shadow: none !important; }
+}
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 8px; border:1px solid var(--border); border-radius:999px;
+  font-size:12px; color:#cbd5e1; background:#0e0f14;
+}

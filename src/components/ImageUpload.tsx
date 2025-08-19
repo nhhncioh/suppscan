@@ -2,6 +2,15 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import ResultCard from "@/components/ResultCard";
+import ProfileBar from "@/components/ProfileBar";
+import StackPanel from "@/components/StackPanel";
+import HistoryPanel from "@/components/HistoryPanel";
+import { useProfile } from "@/lib/profile";
+import type { StackItem } from "@/types/suppscan";
+import { useStack } from "@/lib/stack";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { dataUrlFromFile, useHistoryStore } from "@/lib/history";
+import { detectBadgesFromText, scoreConfidence } from "@/lib/confidence";
 
 type Props = { onReady?: (file: File, previewUrl: string) => void };
 
@@ -15,7 +24,13 @@ export default function ImageUpload({ onReady }: Props) {
   const [serverResult, setServerResult] = useState<any>(null);
   const [explanation, setExplanation] = useState<any>(null);
 
+  const [profile] = useProfile();
+  const stack = useStack();
+  const history = useHistoryStore();
+
   const inputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
   const accept = "image/jpeg,image/png,image/webp";
   const maxBytes = 10 * 1024 * 1024;
 
@@ -40,6 +55,15 @@ export default function ImageUpload({ onReady }: Props) {
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  async function tryDecodeBarcode(): Promise<string | null> {
+    try {
+      if (!imgRef.current) return null;
+      const reader = new BrowserMultiFormatReader();
+      const result = await reader.decodeFromImageElement(imgRef.current);
+      return result?.getText() || null;
+    } catch { return null; }
+  }
+
   async function upload() {
     if (!file) return setError("Choose an image first.");
     setError(null); setUploading(true); setServerResult(null); setExplanation(null);
@@ -48,15 +72,26 @@ export default function ImageUpload({ onReady }: Props) {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json?.error || `Upload failed (${res.status})`);
+
+      // dietary badges from OCR text (client-side)
+      const badges = detectBadgesFromText(json?.ocr?.raw_text || "");
+      json.extracted = json.extracted || {};
+      json.extracted.badges = Array.from(new Set([...(json.extracted.badges||[]), ...badges]));
+
+      // barcode detection
+      const barcode = await tryDecodeBarcode();
+      if (barcode) json.barcode = barcode;
+
       setServerResult(json);
 
       setExplaining(true);
-      const payload = {
+      const payload: any = {
         brand: json.extracted?.brandGuess ?? null,
         product: json.extracted?.productGuess ?? null,
         npn: json.extracted?.npn ?? null,
         ingredients: json.extracted?.ingredients ?? [],
         locale: "CA",
+        profile
       };
       const res2 = await fetch("/api/explain", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -65,12 +100,42 @@ export default function ImageUpload({ onReady }: Props) {
       const json2 = await res2.json();
       if (!res2.ok || !json2.ok) throw new Error(json2?.error || `Explain failed (${res2.status})`);
       setExplanation(json2.explanation);
+
+      // Save to history (img as dataURL)
+      const imgDataUrl = await dataUrlFromFile(file);
+      history.add({
+        id: Math.random().toString(36).slice(2),
+        when: Date.now(),
+        brand: payload.brand,
+        product: payload.product,
+        barcode: barcode || null,
+        imgDataUrl,
+        ingredients: payload.ingredients,
+        explanation: json2.explanation
+      });
     } catch (err:any) {
       setError(err?.message || String(err));
     } finally {
       setUploading(false); setExplaining(false);
     }
   }
+
+  function addToStack() {
+    if (!serverResult?.extracted?.ingredients?.length) return;
+    const item: StackItem = {
+      id: Math.random().toString(36).slice(2),
+      when: Date.now(),
+      brand: serverResult?.extracted?.brandGuess ?? null,
+      product: serverResult?.extracted?.productGuess ?? null,
+      ingredients: serverResult.extracted.ingredients
+    };
+    stack.add(item);
+  }
+
+  const confidence = serverResult ? scoreConfidence({
+    ocr: serverResult.ocr, extracted: serverResult.extracted,
+    meta: serverResult.meta, barcode: serverResult.barcode || null
+  }) : null;
 
   return (
     <div style={{maxWidth:780, margin:"0 auto"}}>
@@ -88,7 +153,7 @@ export default function ImageUpload({ onReady }: Props) {
         <div className="split" style={{marginTop:16}}>
           {/* Left: smaller image + actions */}
           <div className="left">
-            <img src={preview} alt="Preview" className="preview-small" />
+            <img ref={imgRef} src={preview} alt="Preview" className="preview-small" />
             <div className="row">
               <button className="btn btn-primary" onClick={upload} disabled={uploading}>
                 {uploading ? "Analyzing…" : "Analyze"}
@@ -96,6 +161,12 @@ export default function ImageUpload({ onReady }: Props) {
               <button className="btn btn-ghost" onClick={reset} disabled={uploading || explaining}>
                 New scan
               </button>
+              {explanation && (
+                <>
+                  <button className="btn btn-ghost" onClick={addToStack}>Add to stack</button>
+                  <a className="btn btn-ghost" href="/report">Open reports</a>
+                </>
+              )}
             </div>
             {file && (
               <div className="meta">
@@ -104,15 +175,23 @@ export default function ImageUpload({ onReady }: Props) {
             )}
           </div>
 
-          {/* Right: analysis panel */}
+          {/* Right: profile + analysis + stack + history */}
           <div className="right">
+            <ProfileBar />
             {explanation ? (
-              <ResultCard explanation={explanation} extracted={serverResult?.extracted} />
+              <ResultCard
+                explanation={explanation}
+                extracted={serverResult?.extracted}
+                barcode={serverResult?.barcode || null}
+                confidence={confidence}
+              />
             ) : (
               <div className="card" style={{minHeight:140, display:"grid", placeItems:"center", color:"var(--muted)"}}>
                 {explaining ? "Generating summary…" : "Click Analyze to generate guidance."}
               </div>
             )}
+            <StackPanel />
+            <HistoryPanel />
           </div>
         </div>
       )}

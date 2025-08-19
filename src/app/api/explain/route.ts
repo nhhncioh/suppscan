@@ -1,6 +1,10 @@
 ﻿export const runtime = "nodejs";
 
 import OpenAI from "openai";
+import type { Profile, IngredientAmount, GuidelineVerdict } from "@/types/suppscan";
+import { compareToGuidelines } from "@/lib/guidelines";
+import { getEvidence } from "@/data/evidence";
+
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 function arrify<T=any>(v: any): T[] {
@@ -9,120 +13,102 @@ function arrify<T=any>(v: any): T[] {
   if (typeof v === "object") return Object.values(v);
   return [v];
 }
+function toVerdicts(ings: IngredientAmount[], profile: Profile): GuidelineVerdict[] {
+  return ings.map(i => compareToGuidelines(i.name, i.amount, (i.unit as any) ?? null, profile));
+}
+function dedupeBy<T extends Record<string, any>>(list: T[], key: keyof T) {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of list) {
+    const k = String(item?.[key] ?? "").toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
+}
 
 export async function POST(req: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ ok:false, error:"Missing OPENAI_API_KEY" }), {
-        status: 500, headers: { "Content-Type":"application/json" }
-      });
+    const body = await req.json();
+    const { brand, product, npn, ingredients = [], locale = "CA", profile } = body || {};
+    const prof: Profile = profile ?? { ageBand:"19-70", sex:"unspecified", pregnant:false };
+
+    // Deterministic numeric guidance
+    const localVerdicts = toVerdicts(ingredients, prof);
+
+    // Pull any local evidence packs (for any ingredient we support)
+    const localHow = [];
+    const localUses = [];
+    const localTakeIf = [];
+    const localMayImprove = [];
+    for (const ing of ingredients as IngredientAmount[]) {
+      const pack = getEvidence(ing?.name);
+      if (!pack) continue;
+      if (pack.how_to_take) localHow.push(...pack.how_to_take.map(h => ({ ingredient: ing.name, timing: h.timing, with_food: "either", notes: h.notes ?? null })));
+      if (pack.uses)       localUses.push(...pack.uses.map(u => ({ claim: u.claim, evidence_level: u.evidence as any })));
+      if (pack.take_if)    localTakeIf.push(...pack.take_if);
+      if (pack.may_improve)localMayImprove.push(...pack.may_improve);
     }
 
-    const body = await req.json();
-    const { brand, product, npn, ingredients, locale = "CA" } = body || {};
-
-    const system =
-      "You are a careful, evidence-informed supplement explainer. " +
-      "Return STRICT JSON only. Never provide medical advice. Be concise and specific.";
-
-    const user =
-`Using this scanned label info:
-${JSON.stringify({ brand, product, npn, ingredients, locale })}
-Return STRICT JSON with keys:
-{
-  "product_summary": {
-    "brand": string|null,
-    "product": string|null,
-    "npn": string|null,
-    "key_ingredients": [{"name": string, "amount": number|null, "unit": "mcg"|"mg"|"g"|"iu"|null}]
-  },
+    // Ask model for general-purpose bullets for ANY label
+    let model: any = {};
+    if (process.env.OPENAI_API_KEY) {
+      const system = "You are an evidence-informed supplement explainer. Be concise, conservative, and return STRICT JSON only.";
+      const user = `Given this scanned label and user profile:
+${JSON.stringify({ brand, product, npn, locale, profile: prof, ingredients }, null, 2)}
+Return STRICT JSON with keys: {
   "overview": string,
   "uses": [{"claim": string, "evidence_level": "strong"|"mixed"|"limited"|"unknown"}],
   "typical_adult_dose": [{"ingredient": string, "range": string, "unit": string|null, "context": string|null}],
   "how_to_take": [{"ingredient": string, "timing": string|null, "with_food": "yes"|"no"|"either"|null, "notes": string|null}],
-  "label_vs_guidelines": [{
-    "ingredient": string,
-    "label_amount": number|null,
-    "label_unit": "mcg"|"mg"|"g"|"iu"|null,
-    "rda_or_ai": string|null,               // e.g., "600–800 IU/day adults"
-    "ul": {"value": number|null, "unit": "mcg"|"mg"|"g"|"iu"|null}|null,  // tolerable upper limit if known
-    "category": "below_rda"|"within_range"|"above_ul"|"unknown",
-    "explanation": string,                  // one-sentence rationale
-    "readable": string                      // one line like: "1000 IU — within general recommended range — do not exceed 4000 IU/day"
-  }],
-  "take_if": [                              // bullet points, max 8 words each
-    {"scenario": string, "rationale": string}
-  ],
-  "may_improve": [
-    {"area": string, "evidence_level": "strong"|"mixed"|"limited"|"unknown", "typical_timeframe": string|null}
-  ],
+  "take_if": [{"scenario": string, "rationale": string}],
+  "may_improve": [{"area": string, "evidence_level": "strong"|"mixed"|"limited"|"unknown", "typical_timeframe": string|null}],
   "upper_limits_and_warnings": [{"note": string}],
   "interactions_and_contraindications": [{"item": string, "note": string}],
   "quality_considerations": [string],
   "references": [{"title": string, "url": string}],
   "disclaimer": string
 }
-Requirements:
-- “take_if” items must be short (≤8 words), practical, and conservative (e.g., deficiency signs, limited sun exposure, clinician advice).
-- For label_vs_guidelines.readable: include the label amount+unit, verdict phrase (“within general recommended range”, “below typical intake”, “above upper limit”), and a UL line like “do not exceed 4000 IU/day” when known.
-- Base dose ranges/UL on reputable guidance (e.g., NIH ODS / Health Canada); if unknown, set fields to null and use "unknown".
-`;
+Rules: Base content on mainstream sources (NIH ODS style). Be conservative. Do NOT invent numeric RDA/UL.`;
+      const completion = await client.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: system }, { role: "user", content: user }]
+      });
+      try { model = JSON.parse(completion.choices[0]?.message?.content || "{}"); } catch { model = {}; }
+    }
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    });
+    const mergedHow = dedupeBy([...arrify(model.how_to_take), ...localHow], "ingredient");
+    const mergedUses = dedupeBy([...arrify(model.uses), ...localUses], "claim");
+    const mergedTakeIf = arrify(model.take_if).length ? arrify(model.take_if) : (localTakeIf.length ? localTakeIf : [
+      { scenario: "Clinician recommended", rationale: "Personalized assessment." },
+      { scenario: "Diet lacks this nutrient", rationale: "Intake may be low." },
+      { scenario: "Confirmed deficiency", rationale: "Use under clinician guidance." }
+    ]);
+    const mergedMayImprove = arrify(model.may_improve).length ? arrify(model.may_improve) : (localMayImprove.length ? localMayImprove : [
+      { area: "Deficiency-related symptoms", evidence_level: "strong", typical_timeframe: "varies by nutrient" }
+    ]);
 
-    const raw = JSON.parse(completion.choices[0]?.message?.content || "{}");
-
-    // Normalize & keep shape stable
     const explanation = {
-      product_summary: raw.product_summary ?? {
-        brand, product, npn,
-        key_ingredients: (ingredients || []).map((i: any) => ({ name: i.name, amount: i.amount ?? null, unit: i.unit ?? null })),
-      },
-      overview: raw.overview ?? "",
-      uses: arrify(raw.uses),
-      typical_adult_dose: arrify(raw.typical_adult_dose),
-      how_to_take: arrify(raw.how_to_take),
-      label_vs_guidelines: arrify(raw.label_vs_guidelines).map((x: any) => {
-        const amount = x?.label_amount != null ? String(x.label_amount) : "?";
-        const unit = x?.label_unit ? String(x.label_unit).toUpperCase() : "";
-        const verdict =
-          x?.category === "within_range" ? "within general recommended range" :
-          x?.category === "below_rda"    ? "below typical intake guidance" :
-          x?.category === "above_ul"     ? "above the upper limit" :
-                                           "guidance unknown";
-        // Try to surface UL even if model didn't put in `readable`
-        let ulStr = "";
-        if (x?.ul?.value && x?.ul?.unit) ulStr = ` — do not exceed ${x.ul.value} ${String(x.ul.unit).toUpperCase()}/day`;
-        else {
-          const m = /\b(\d[\d,.]*)\s*(iu|mg|mcg|g)\b/i.exec(x?.explanation || "");
-          if (m) ulStr = ` — do not exceed ${m[1]} ${m[2].toUpperCase()}/day`;
-        }
-        const readable = x?.readable || `${amount} ${unit} — ${verdict}${ulStr}`;
-        return { ...x, readable };
-      }),
-      take_if: arrify(raw.take_if),
-      may_improve: arrify(raw.may_improve),
-      upper_limits_and_warnings: arrify(raw.upper_limits_and_warnings),
-      interactions_and_contraindications: arrify(raw.interactions_and_contraindications),
-      quality_considerations: arrify(raw.quality_considerations),
-      references: arrify(raw.references),
-      disclaimer: raw.disclaimer || "This information is for educational purposes only and is not a substitute for professional medical advice.",
+      product_summary: { brand, product, npn, key_ingredients: ingredients },
+      overview: model.overview ?? "",
+      uses: mergedUses,
+      typical_adult_dose: arrify(model.typical_adult_dose),
+      how_to_take: mergedHow,
+      label_vs_guidelines: localVerdicts,
+      take_if: mergedTakeIf,
+      may_improve: mergedMayImprove,
+      upper_limits_and_warnings: arrify(model.upper_limits_and_warnings),
+      interactions_and_contraindications: arrify(model.interactions_and_contraindications),
+      quality_considerations: arrify(model.quality_considerations),
+      references: arrify(model.references),
+      disclaimer: model.disclaimer || "This information is for educational purposes only and is not a substitute for professional medical advice."
     };
 
-    return new Response(JSON.stringify({ ok: true, explanation }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ ok: true, explanation }), { status: 200, headers: { "Content-Type": "application/json" }});
   } catch (err) {
-    return new Response(JSON.stringify({ ok:false, error:String(err) }), {
-      status: 500, headers: { "Content-Type":"application/json" }
-    });
+    return new Response(JSON.stringify({ ok:false, error:String(err) }), { status: 500, headers: { "Content-Type": "application/json" }});
   }
 }
