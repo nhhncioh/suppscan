@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# --- SuppScan / Next.js ---
+.next/
+node_modules/
+out/
+.vercel/
+*.log
+
+# env files (DO NOT COMMIT)
+.env
+.env.*
+!.env.example
