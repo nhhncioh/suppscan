@@ -2,10 +2,14 @@
 
 export default function Home() {
   return (
-    <main style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
-      <div style={{ textAlign: "center", fontFamily: "system-ui, sans-serif", width: "100%", maxWidth: 720 }}>
-        <h1>SuppScan</h1>
-        <p style={{ opacity: 0.8 }}>Step 2 — Upload an image (no OCR/model yet)</p>
+    <main className="center">
+      <div className="container">
+        <div style={{textAlign:"center", marginBottom:18}}>
+          <h1 style={{fontSize:28, fontWeight:800, margin:0}}>SuppScan</h1>
+          <p style={{margin:"8px 0 0"}} className="muted">
+            Snap a supplement label to get clear, evidence-informed guidance.
+          </p>
+        </div>
         <ImageUpload />
       </div>
     </main>
