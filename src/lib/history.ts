@@ -10,7 +10,9 @@ export type HistoryItem = {
   barcode?: string | null;
   imgDataUrl?: string | null;
   ingredients?: IngredientAmount[];
-  explanation?: any; // snapshot for report
+  badges?: string[];   // NEW
+  marks?: string[];    // NEW
+  explanation?: any;
 };
 
 const KEY = "suppscan_history_v1";

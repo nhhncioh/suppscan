@@ -1,8 +1,11 @@
 ﻿import ImageUpload from "@/components/ImageUpload";
+import AutoAnalyze from "@/components/AutoAnalyze";
+import LeftPricePanel from "@/components/LeftPricePanel";
 
 export default function Home() {
   return (
     <main className="center">
+      <AutoAnalyze />
       <div className="container">
         <div style={{textAlign:"center", marginBottom:18}}>
           <h1 style={{fontSize:28, fontWeight:800, margin:0}}>SuppScan</h1>
@@ -11,7 +14,12 @@ export default function Home() {
           </p>
         </div>
         <ImageUpload />
+      <LeftPricePanel />
       </div>
     </main>
   );
 }
+
+
+
+

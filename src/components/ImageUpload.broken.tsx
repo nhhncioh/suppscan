@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import ResultCard from "@/components/ResultCard";
@@ -24,7 +24,7 @@ export default function ImageUpload({ onReady }: Props) {
 
   const [serverResult, setServerResult] = useState<any>(null);
   const [explanation, setExplanation] = useState<any>(null);
-  const [confidence, setConfidence] = useState<Confidence | null>(null);
+  const [confidence, setConfidence] = useState<Confidence | null>(null);  // NEW
 
   const [profile] = useProfile();
   const stack = useStack();
@@ -36,43 +36,24 @@ export default function ImageUpload({ onReady }: Props) {
   const accept = "image/jpeg,image/png,image/webp";
   const maxBytes = 10 * 1024 * 1024;
 
-  useEffect(() => {
-    return () => { if (preview) URL.revokeObjectURL(preview); };
-  }, [preview]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
   function selectFile(f: File) {
-    setError(null);
-    setServerResult(null);
-    setExplanation(null);
-    setConfidence(null);
-    if (!f.type.startsWith("image/")) { setError("Please choose an image file."); return; }
-    if (!accept.split(",").includes(f.type)) { setError("Use JPG, PNG or WEBP."); return; }
-    if (f.size > maxBytes) { setError("Max file size is 10MB."); return; }
+    setError(null); setServerResult(null); setExplanation(null); setConfidence(null);
+    if (!f.type.startsWith("image/")) return setError("Please choose an image file.");
+    if (!accept.split(",").includes(f.type)) return setError("Use JPG, PNG or WEBP.");
+    if (f.size > maxBytes) return setError("Max file size is 10MB.");
     const url = URL.createObjectURL(f);
-    setFile(f);
-    setPreview(url);
-    onReady?.(f, url);
+    setFile(f); setPreview(url); onReady?.(f, url);
   }
 
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (f) selectFile(f);
-  }
-  function onDrop(e: React.DragEvent<HTMLLabelElement>) {
-    e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) selectFile(f);
-  }
+  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) { const f = e.target.files?.[0]; if (f) selectFile(f); }
+  function onDrop(e: React.DragEvent<HTMLLabelElement>) { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) selectFile(f); }
   function onDragOver(e: React.DragEvent<HTMLLabelElement>) { e.preventDefault(); }
 
   function reset() {
-    setFile(null);
-    if (preview) URL.revokeObjectURL(preview);
-    setPreview(null);
-    setError(null);
-    setServerResult(null);
-    setExplanation(null);
-    setConfidence(null);
+    setFile(null); if (preview) URL.revokeObjectURL(preview); setPreview(null);
+    setError(null); setServerResult(null); setExplanation(null); setConfidence(null);
     setExplaining(false);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -83,40 +64,29 @@ export default function ImageUpload({ onReady }: Props) {
       const reader = new BrowserMultiFormatReader();
       const result = await reader.decodeFromImageElement(imgRef.current);
       return result?.getText() || null;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
 
   async function upload() {
-    if (!file) { setError("Choose an image first."); return; }
-    setError(null);
-    setUploading(true);
-    setServerResult(null);
-    setExplanation(null);
-    setConfidence(null);
+    if (!file) return setError("Choose an image first.");
+    setError(null); setUploading(true); setServerResult(null); setExplanation(null); setConfidence(null);
     try {
-      const fd = new FormData();
-      fd.append("image", file, file.name || "image.jpg");
+      const fd = new FormData(); fd.append("image", file, file.name || "image.jpg");
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json?.error || `Upload failed (${res.status})`);
 
-      // Badges & trusted marks from OCR text (client-side)
-      const rawText = json?.ocr?.raw_text || "";
-      const badges = detectBadgesFromText(rawText);
-      const marks  = detectTrustedMarksFromText(rawText);
+      // dietary badges from OCR text (client-side)
+      const badges = detectBadgesFromText, detectTrustedMarksFromText(json?.ocr?.raw_text || "");
       json.extracted = json.extracted || {};
       json.extracted.badges = Array.from(new Set([...(json.extracted.badges||[]), ...badges]));
-      json.extracted.marks  = Array.from(new Set([...(json.extracted.marks||[]),  ...marks]));
 
-      // Barcode detection
+      // barcode detection
       const barcode = await tryDecodeBarcode();
       if (barcode) json.barcode = barcode;
 
       setServerResult(json);
 
-      // Ask server for explanation
       setExplaining(true);
       const payload: any = {
         brand: json.extracted?.brandGuess ?? null,
@@ -127,15 +97,14 @@ export default function ImageUpload({ onReady }: Props) {
         profile
       };
       const res2 = await fetch("/api/explain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const json2 = await res2.json();
       if (!res2.ok || !json2.ok) throw new Error(json2?.error || `Explain failed (${res2.status})`);
       setExplanation(json2.explanation);
 
-      // Confidence (uses explanation sections too)
+      // NEW: compute confidence with explanation context
       setConfidence(scoreConfidence({
         ocr: json.ocr,
         extracted: json.extracted,
@@ -144,25 +113,22 @@ export default function ImageUpload({ onReady }: Props) {
         explanation: json2.explanation
       }));
 
-      // Save to history
+      // Save to history (img as dataURL)
       const imgDataUrl = await dataUrlFromFile(file);
       history.add({
         id: Math.random().toString(36).slice(2),
         when: Date.now(),
         brand: payload.brand,
         product: payload.product,
-        barcode: json.barcode || null,
+        barcode: barcode || null,
         imgDataUrl,
         ingredients: payload.ingredients,
-        badges: json.extracted.badges,
-        marks: json.extracted.marks,
         explanation: json2.explanation
       });
-    } catch (err: any) {
+    } catch (err:any) {
       setError(err?.message || String(err));
     } finally {
-      setUploading(false);
-      setExplaining(false);
+      setUploading(false); setExplaining(false);
     }
   }
 
@@ -179,27 +145,25 @@ export default function ImageUpload({ onReady }: Props) {
   }
 
   return (
-    <div style={{ maxWidth: 780, margin: "0 auto" }}>
+    <div style={{maxWidth:780, margin:"0 auto"}}>
       <label htmlFor="file" className="drop" onDrop={onDrop} onDragOver={onDragOver}>
         <div>
           <strong>Drop an image</strong> or click to choose
-          <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-            JPG / PNG / WEBP Â· Max 10MB
-          </div>
+          <div className="muted" style={{marginTop:6,fontSize:12}}>JPG / PNG / WEBP · Max 10MB</div>
         </div>
-        <input ref={inputRef} id="file" type="file" accept={accept} onChange={onInputChange} style={{ display: "none" }} />
+        <input ref={inputRef} id="file" type="file" accept={accept} onChange={onInputChange} style={{display:"none"}} />
       </label>
 
       {error && <p className="error">{error}</p>}
 
       {preview && (
-        <div className="split" style={{ marginTop: 16 }}>
+        <div className="split" style={{marginTop:16}}>
           {/* Left: smaller image + actions */}
           <div className="left">
             <img ref={imgRef} src={preview} alt="Preview" className="preview-small" />
             <div className="row">
               <button className="btn btn-primary" onClick={upload} disabled={uploading}>
-                {uploading ? "Analyzingâ€¦" : "Analyze"}
+                {uploading ? "Analyzing…" : "Analyze"}
               </button>
               <button className="btn btn-ghost" onClick={reset} disabled={uploading || explaining}>
                 New scan
@@ -213,7 +177,7 @@ export default function ImageUpload({ onReady }: Props) {
             </div>
             {file && (
               <div className="meta">
-                {file.name} Â· {(file.size / 1024 / 1024).toFixed(2)} MB Â· {file.type}
+                {file.name} · {(file.size/1024/1024).toFixed(2)} MB · {file.type}
               </div>
             )}
           </div>
@@ -229,8 +193,8 @@ export default function ImageUpload({ onReady }: Props) {
                 confidence={confidence}
               />
             ) : (
-              <div className="card" style={{ minHeight: 140, display: "grid", placeItems: "center", color: "var(--muted)" }}>
-                {explaining ? "Generating summaryâ€¦" : "Click Analyze to generate guidance."}
+              <div className="card" style={{minHeight:140, display:"grid", placeItems:"center", color:"var(--muted)"}}>
+                {explaining ? "Generating summary…" : "Click Analyze to generate guidance."}
               </div>
             )}
             <StackPanel />
