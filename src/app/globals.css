@@ -108,6 +108,154 @@ body{
   width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px;
   background:#0e0f14; color:#e2e8f0; outline:none;
 }
+
+/* Add these styles to your globals.css file */
+
+/* Star rating styles */
+.star {
+  font-size: 16px;
+  color: #ddd;
+  transition: color 0.2s ease;
+}
+
+.star.filled {
+  color: #ffc107;
+}
+
+/* Tab button hover effects */
+.tab-button:hover {
+  background-color: rgba(0, 123, 255, 0.1) !important;
+}
+
+.tab-button.active:hover {
+  background-color: #0056b3 !important;
+}
+
+/* Review card animations */
+.review-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.review-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Rating distribution bars (for future enhancement) */
+.rating-bar {
+  height: 8px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rating-bar-fill {
+  height: 100%;
+  background-color: #ffc107;
+  transition: width 0.3s ease;
+}
+
+/* Source badge styles */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-badge.amazon {
+  background-color: #ff9900;
+  color: white;
+}
+
+.source-badge.iherb {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.source-badge.reddit {
+  background-color: #ff4500;
+  color: white;
+}
+
+.source-badge.bodybuilding {
+  background-color: #1976D2;
+  color: white;
+}
+
+.source-badge.vitacost {
+  background-color: #9C27B0;
+  color: white;
+}
+
+.source-badge.manual {
+  background-color: #607D8B;
+  color: white;
+}
+
+/* Review summary highlights */
+.review-highlight {
+  background: linear-gradient(120deg, #e8f5e8 0%, #c8e6c9 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #4CAF50;
+  margin: 4px 0;
+}
+
+.review-concern {
+  background: linear-gradient(120deg, #ffeaa7 0%, #fdcb6e 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #e17055;
+  margin: 4px 0;
+}
+
+/* Responsive design for reviews */
+@media (max-width: 768px) {
+  .tab-button {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+  
+  .star {
+    font-size: 14px;
+  }
+  
+  .review-card {
+    padding: 8px !important;
+  }
+}
+
+/* Loading animation for reviews */
+.reviews-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #666;
+}
+
+.reviews-loading::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e9ecef;
+  border-top-color: #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .input:focus{ border-color:#64748b; }
 
 a.chip{ text-decoration:none; }

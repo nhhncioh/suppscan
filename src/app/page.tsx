@@ -1,6 +1,5 @@
 ﻿import ImageUpload from "@/components/ImageUpload";
 import AutoAnalyze from "@/components/AutoAnalyze";
-import LeftPricePanel from "@/components/LeftPricePanel";
 
 export default function Home() {
   return (
@@ -14,12 +13,7 @@ export default function Home() {
           </p>
         </div>
         <ImageUpload />
-      <LeftPricePanel />
       </div>
     </main>
   );
 }
-
-
-
-

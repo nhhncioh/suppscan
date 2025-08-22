@@ -2,8 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import ResultCard from "@/components/ResultCard";
-import ProfileBar from "@/components/ProfileBar";
-import StackPanel from "@/components/StackPanel";
 import HistoryPanel from "@/components/HistoryPanel";
 import { useProfile } from "@/lib/profile";
 import type { StackItem } from "@/types/suppscan";
@@ -204,12 +202,7 @@ export default function ImageUpload({ onReady }: Props) {
               <button className="btn btn-ghost" onClick={reset} disabled={uploading || explaining}>
                 New scan
               </button>
-              {explanation && (
-                <>
-                  <button className="btn btn-ghost" onClick={addToStack}>Add to stack</button>
-                  <a className="btn btn-ghost" href="/report">Open reports</a>
-                </>
-              )}
+              {/* Remove all extra buttons since functionality is in tabs */}
             </div>
             {file && (
               <div className="meta">
@@ -218,9 +211,8 @@ export default function ImageUpload({ onReady }: Props) {
             )}
           </div>
 
-          {/* Right: profile + analysis + stack + history */}
+          {/* Right: analysis only */}
           <div className="right">
-            <ProfileBar />
             {explanation ? (
               <ResultCard
                 explanation={explanation}
@@ -233,7 +225,6 @@ export default function ImageUpload({ onReady }: Props) {
                 {explaining ? "Generating summary…" : "Click Analyze to generate guidance."}
               </div>
             )}
-            <StackPanel />
             <HistoryPanel />
           </div>
         </div>
