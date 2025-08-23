@@ -1,9 +1,10 @@
 ﻿"use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useHistoryStore, HistoryItem } from "@/lib/history";
 
-export default function ReportPage() {
+// Separate the component that uses useSearchParams
+function ReportContent() {
   const params = useSearchParams();
   const id = params.get("id");
   const { items } = useHistoryStore();
@@ -59,5 +60,19 @@ export default function ReportPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function ReportLoading() {
+  return <div style={{padding:24}}>Loading report...</div>;
+}
+
+// Main component with Suspense wrapper
+export default function ReportPage() {
+  return (
+    <Suspense fallback={<ReportLoading />}>
+      <ReportContent />
+    </Suspense>
   );
 }
