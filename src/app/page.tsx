@@ -1,19 +1,38 @@
-﻿import ImageUpload from "@/components/ImageUpload";
+﻿// src/app/page.tsx (Updated)
+import ImageUpload from "@/components/ImageUpload";
 import Link from "next/link";
 import AutoAnalyze from "@/components/AutoAnalyze";
+import ProfilePrompt from "@/components/ProfilePrompt";
 
 export default function Home() {
   return (
     <main className="center">
       <AutoAnalyze />
+      <ProfilePrompt />
       <div className="container">
         <div style={{textAlign:"center", marginBottom:18}}>
           <h1 style={{fontSize:28, fontWeight:800, margin:0}}>SuppScan</h1>
           <p style={{margin:"8px 0 0"}} className="muted">
             Snap a supplement label to get clear, evidence-informed guidance.
           </p>
-          {/* Add this navigation link */}
-          <div style={{marginTop: 16}}>
+          
+          {/* Navigation Links */}
+          <div style={{marginTop: 16, display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
+            <Link href="/profile" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: 'white',
+              textDecoration: 'none',
+              padding: '10px 16px',
+              borderRadius: '10px',
+              fontWeight: '500',
+              fontSize: '14px'
+            }}>
+              👤 My Profile
+            </Link>
+            
             <Link href="/symptoms" style={{
               display: 'inline-flex',
               alignItems: 'center',

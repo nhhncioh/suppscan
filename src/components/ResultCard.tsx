@@ -1,4 +1,4 @@
-﻿// src/components/ResultCard.tsx - Fixed syntax error
+﻿// src/components/ResultCard.tsx - With Inline Personalized Section
 "use client";
 
 import ProductLink from "@/components/ProductLink";
@@ -7,6 +7,9 @@ import { getTrustedMarkLink } from "@/lib/confidence";
 import { detectFormNotes } from "@/lib/forms";
 import { chooseProductUrl } from "@/lib/productUrlHeuristics";
 import { SymptomMatcher, type SymptomMatch, type InteractionWarning } from "@/lib/symptomMatcher";
+import { useProfileStore } from '@/lib/userProfile';
+import { getPersonalizedAnalysis } from '@/lib/profileIntegration';
+import { User, Target, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const ReviewsTab = dynamic(() => import('./ReviewsTab'), {
@@ -19,6 +22,257 @@ const PriceWidget = dynamic(() => import('./PriceWidget'), {
 
 type ConfidenceT = { level: string; score: number; reasons?: string[] } | null;
 type Props = { explanation: any; extracted?: any; barcode?: string | null; confidence?: ConfidenceT; };
+
+// Inline PersonalizedSection Component
+function PersonalizedSection({ supplementData }: {
+  supplementData: {
+    name?: string;
+    brand?: string;
+    ingredients?: string[];
+    keyIngredient?: string;
+    form?: string;
+    price?: number;
+  };
+}) {
+  const { profile, isComplete } = useProfileStore();
+  
+  const personalizedAnalysis = useMemo(() => {
+    if (!profile || !isComplete) return null;
+    return getPersonalizedAnalysis(supplementData, profile);
+  }, [supplementData, profile, isComplete]);
+
+  if (!personalizedAnalysis) {
+    return (
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1))',
+        border: '1px solid rgba(99, 102, 241, 0.3)',
+        borderRadius: '12px',
+        padding: '16px',
+        marginBottom: '20px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '12px'
+        }}>
+          <User size={20} color="#6366f1" />
+          <div>
+            <h4 style={{ color: '#e5e7eb', fontSize: '16px', fontWeight: '600', margin: 0 }}>
+              Get Personalized Analysis
+            </h4>
+            <p style={{ color: '#9ca3af', fontSize: '14px', margin: '4px 0 0' }}>
+              Create your health profile for customized recommendations
+            </p>
+          </div>
+        </div>
+        <a 
+          href="/profile"
+          style={{
+            display: 'inline-block',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            color: 'white',
+            textDecoration: 'none',
+            padding: '8px 16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          Setup Profile
+        </a>
+      </div>
+    );
+  }
+
+  const { goalAlignment, riskAssessment, dosageRecommendations, lifestyleCompatibility, personalizedMessage } = personalizedAnalysis;
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1))',
+      border: '1px solid rgba(16, 185, 129, 0.3)',
+      borderRadius: '12px',
+      padding: '16px',
+      marginBottom: '20px'
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '16px'
+      }}>
+        <User size={20} color="#10b981" />
+        <div>
+          <h4 style={{ color: '#e5e7eb', fontSize: '16px', fontWeight: '600', margin: 0 }}>
+            Personalized for {profile.name}
+          </h4>
+          <p style={{ color: '#9ca3af', fontSize: '14px', margin: '4px 0 0' }}>
+            {personalizedMessage}
+          </p>
+        </div>
+      </div>
+
+      {/* Goal Alignment */}
+      {(goalAlignment.primaryMatches.length > 0 || goalAlignment.secondaryMatches.length > 0) && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px'
+          }}>
+            <Target size={16} color="#10b981" />
+            <span style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>
+              Goal Alignment ({goalAlignment.relevanceScore}% match)
+            </span>
+          </div>
+          
+          {goalAlignment.primaryMatches.map((match, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '4px'
+            }}>
+              <CheckCircle size={14} color="#10b981" />
+              <span style={{ color: '#e5e7eb', fontSize: '13px' }}>{match}</span>
+            </div>
+          ))}
+          
+          {goalAlignment.secondaryMatches.map((match, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '4px'
+            }}>
+              <Info size={14} color="#3b82f6" />
+              <span style={{ color: '#cbd5e1', fontSize: '13px' }}>{match}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Risk Assessment */}
+      <div style={{ marginBottom: '16px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '8px'
+        }}>
+          {riskAssessment.safetyScore >= 80 ? (
+            <CheckCircle size={16} color="#10b981" />
+          ) : (
+            <AlertTriangle size={16} color="#f59e0b" />
+          )}
+          <span style={{ 
+            color: riskAssessment.safetyScore >= 80 ? '#10b981' : '#f59e0b', 
+            fontSize: '14px', 
+            fontWeight: '600' 
+          }}>
+            Safety Score: {riskAssessment.safetyScore}/100
+          </span>
+        </div>
+
+        {/* Warnings */}
+        {[...riskAssessment.medicationInteractions, ...riskAssessment.allergyWarnings, ...riskAssessment.conditionConsiderations].map((warning, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            marginBottom: '4px',
+            padding: '8px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '6px'
+          }}>
+            <AlertTriangle size={14} color="#ef4444" style={{ marginTop: '1px' }} />
+            <span style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.4' }}>{warning}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Dosage Recommendations */}
+      {dosageRecommendations.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px'
+          }}>
+            <Info size={16} color="#3b82f6" />
+            <span style={{ color: '#3b82f6', fontSize: '14px', fontWeight: '600' }}>
+              Personalized Dosage
+            </span>
+          </div>
+          
+          {dosageRecommendations.map((rec, index) => (
+            <div key={index} style={{
+              padding: '8px',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '6px',
+              marginBottom: '8px'
+            }}>
+              <div style={{ color: '#93c5fd', fontSize: '12px', fontWeight: '600', marginBottom: '2px' }}>
+                {rec.adjustmentReason}
+              </div>
+              <div style={{ color: '#e5e7eb', fontSize: '12px', lineHeight: '1.4' }}>
+                {rec.recommendedDosage} • {rec.timing} • {rec.withFood ? 'With food' : 'With or without food'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lifestyle Compatibility */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: '8px'
+      }}>
+        <div style={{
+          textAlign: 'center',
+          padding: '8px',
+          background: lifestyleCompatibility.dietaryCompatibility ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          borderRadius: '6px'
+        }}>
+          <div style={{ fontSize: '16px', marginBottom: '2px' }}>
+            {lifestyleCompatibility.dietaryCompatibility ? '✅' : '❌'}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '11px' }}>Diet Compatible</div>
+        </div>
+        
+        <div style={{
+          textAlign: 'center',
+          padding: '8px',
+          background: lifestyleCompatibility.formPreference ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)',
+          borderRadius: '6px'
+        }}>
+          <div style={{ fontSize: '16px', marginBottom: '2px' }}>
+            {lifestyleCompatibility.formPreference ? '✅' : '➖'}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '11px' }}>Preferred Form</div>
+        </div>
+        
+        <div style={{
+          textAlign: 'center',
+          padding: '8px',
+          background: lifestyleCompatibility.budgetFit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+          borderRadius: '6px'
+        }}>
+          <div style={{ fontSize: '16px', marginBottom: '2px' }}>
+            {lifestyleCompatibility.budgetFit ? '✅' : '💰'}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '11px' }}>Budget Fit</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ResultCard({ explanation, extracted, barcode, confidence }: Props) {
   const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price'>('analysis');
@@ -421,6 +675,18 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       <div style={{padding: '20px'}}>
         {activeTab === 'analysis' && (
           <div>
+            {/* PERSONALIZED ANALYSIS SECTION - NEW */}
+            <PersonalizedSection 
+              supplementData={{
+                name: productName,
+                brand: brandStr,
+                ingredients: (explanation?.ingredients || extracted?.ingredients || []).map((ing: any) => ing.name || ''),
+                keyIngredient: retailFirstIngredient,
+                form: extracted?.form,
+                price: extracted?.price
+              }}
+            />
+
             {/* Enhanced Symptom Matching Section */}
             {symptomMatches.length > 0 && (
               <div style={{marginBottom: 20}}>
