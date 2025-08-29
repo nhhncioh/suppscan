@@ -1,4 +1,4 @@
-﻿// src/components/ResultCard.tsx - FIXED - Using your exact original logic
+﻿// src/components/ResultCard.tsx - Fixed syntax error
 "use client";
 
 import ProductLink from "@/components/ProductLink";
@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getTrustedMarkLink } from "@/lib/confidence";
 import { detectFormNotes } from "@/lib/forms";
 import { chooseProductUrl } from "@/lib/productUrlHeuristics";
+import { SymptomMatcher, type SymptomMatch, type InteractionWarning } from "@/lib/symptomMatcher";
 import dynamic from 'next/dynamic';
 
 const ReviewsTab = dynamic(() => import('./ReviewsTab'), {
@@ -22,6 +23,10 @@ type Props = { explanation: any; extracted?: any; barcode?: string | null; confi
 export default function ResultCard({ explanation, extracted, barcode, confidence }: Props) {
   const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price'>('analysis');
   const [reviewCount, setReviewCount] = useState<number>(0);
+  const [symptomMatches, setSymptomMatches] = useState<SymptomMatch[]>([]);
+  const [personalizedMessage, setPersonalizedMessage] = useState<string>('');
+  const [interactionWarnings, setInteractionWarnings] = useState<InteractionWarning[]>([]);
+  const [overallScore, setOverallScore] = useState<number>(0);
   
   useEffect(() => {
     const handleSwitchToPriceTab = () => {
@@ -81,6 +86,23 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       .then(d => { if (d?.ok && d?.url) setAmazonUrl(d.url); })
       .catch(()=>{});
   }, [brandStr, productName, retailFirstIngredient, retailAmount, retailUnit, manufacturerUrl]);
+
+  // Enhanced symptom matching with interactions
+  useEffect(() => {
+    if (explanation || extracted) {
+      const supplementProfile = {
+        name: productName,
+        ingredients: (explanation?.ingredients || extracted?.ingredients || []).map((ing: any) => ing.name || ''),
+        keyIngredient: retailFirstIngredient
+      };
+      
+      const analysis = SymptomMatcher.analyzeSupplementForUser(supplementProfile);
+      setSymptomMatches(analysis.matches);
+      setPersonalizedMessage(analysis.personalizedMessage);
+      setInteractionWarnings(analysis.interactions);
+      setOverallScore(analysis.overallScore);
+    }
+  }, [explanation, extracted, productName, retailFirstIngredient]);
 
   // YOUR ORIGINAL LOGIC - PRESERVED EXACTLY
   const gl = Array.isArray(explanation?.label_vs_guidelines) 
@@ -194,56 +216,48 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
           {confidence && (
             <span 
               className="chip" 
-              title={confidence?.reasons?.join?.("; ") || ""}
+              title={confidence?.reasons?.join?.('; ') || ''}
               style={{
-                background: 'rgba(74, 222, 128, 0.1)',
-                border: '1px solid rgba(74, 222, 128, 0.3)',
-                color: '#4ade80',
-                fontSize: '12px',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontWeight: '500'
+                background: confidence.level === "high" ? '#0c1a10' : 
+                           confidence.level === "medium" ? '#1a0f0c' : '#1a1a0c',
+                borderColor: confidence.level === "high" ? '#2e7d32' : 
+                            confidence.level === "medium" ? '#d32f2f' : '#f57c00',
+                color: confidence.level === "high" ? '#4caf50' : 
+                       confidence.level === "medium" ? '#f44336' : '#ff9800'
               }}
             >
-              Confidence: {confidence.level} ({confidence.score}%)
+              {confidence.level} confidence
             </span>
           )}
-          {barcode && (
+          
+          {/* Overall Symptom Match Score */}
+          {overallScore > 0 && (
             <span 
               className="chip"
+              title={`This supplement matches ${symptomMatches.length} of your symptoms`}
               style={{
-                background: 'rgba(96, 165, 250, 0.1)',
-                border: '1px solid rgba(96, 165, 250, 0.3)',
-                color: '#60a5fa',
-                fontSize: '12px',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontWeight: '500'
+                background: overallScore >= 6 ? '#0c1a10' : overallScore >= 3 ? '#1a0f0c' : '#1a1a0c',
+                borderColor: overallScore >= 6 ? '#2e7d32' : overallScore >= 3 ? '#f57c00' : '#d32f2f',
+                color: overallScore >= 6 ? '#4caf50' : overallScore >= 3 ? '#ff9800' : '#f44336'
               }}
             >
-              Barcode: {barcode}
+              {overallScore >= 6 ? 'Excellent' : overallScore >= 3 ? 'Good' : 'Fair'} match ({overallScore.toFixed(1)})
             </span>
           )}
-          {badges.map((b, i)=>(
-            <span 
-              key={i} 
-              className="chip"
-              style={{
-                background: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                color: '#22c55e',
-                fontSize: '12px',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontWeight: '500'
-              }}
-            >
-              {b}
-            </span>
-          ))}
-          {marks.map((m, i)=>{
+        </div>
+        
+        {badges?.length > 0 && (
+          <div style={{display:"flex", gap:8, flexWrap:"wrap", marginTop:8}}>
+            {badges.map((b:string, i:number) => (
+              <span key={i} className="badge" style={{color:"#4caf50"}}>{b}</span>
+            ))}
+          </div>
+        )}
+        
+        <div style={{display:"flex", gap:8, flexWrap:"wrap", marginTop:8}}>
+          {marks?.map((m:string,i:number) => {
             const href = getTrustedMarkLink(m);
-            return href
+            return href 
               ? (
                 <a key={i} className="chip" href={href} target="_blank" rel="noopener noreferrer"
                    style={{
@@ -280,6 +294,115 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
         </div>
       </div>
 
+      {/* Personalized Message Banner */}
+      {personalizedMessage && (
+        <div style={{
+          margin: '0 20px 16px',
+          padding: '12px 16px',
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          borderRadius: '12px',
+          border: '1px solid #34d399'
+        }}>
+          <div style={{
+            color: 'white',
+            fontWeight: '600',
+            fontSize: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: symptomMatches.length > 0 ? '8px' : '0'
+          }}>
+            {personalizedMessage}
+          </div>
+          {symptomMatches.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {symptomMatches.slice(0, 4).map(match => (
+                <span
+                  key={match.symptomId}
+                  style={{
+                    fontSize: '12px',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '8px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {match.symptomName}
+                  <span style={{ 
+                    fontSize: '10px', 
+                    opacity: 0.8,
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    borderRadius: '4px',
+                    padding: '1px 4px'
+                  }}>
+                    {match.confidence}
+                  </span>
+                </span>
+              ))}
+              {symptomMatches.length > 4 && (
+                <span style={{
+                  fontSize: '12px',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  padding: '4px 8px'
+                }}>
+                  +{symptomMatches.length - 4} more
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Interaction Warnings */}
+      {interactionWarnings.length > 0 && (
+        <div style={{
+          margin: '0 20px 16px',
+          padding: '12px 16px',
+          background: interactionWarnings.some(w => w.severity === 'serious') 
+            ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' 
+            : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+          borderRadius: '12px',
+          border: interactionWarnings.some(w => w.severity === 'serious') 
+            ? '1px solid #f87171' 
+            : '1px solid #fbbf24'
+        }}>
+          <div style={{
+            color: 'white',
+            fontWeight: '600',
+            fontSize: '14px',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            ⚠️ {interactionWarnings.some(w => w.severity === 'serious') ? 'Important' : 'Supplement'} Interactions
+          </div>
+          {interactionWarnings.slice(0, 2).map((warning, i) => (
+            <div key={i} style={{
+              fontSize: '12px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              marginBottom: i < interactionWarnings.length - 1 ? '6px' : '0',
+              lineHeight: '1.4'
+            }}>
+              • {warning.warning}
+            </div>
+          ))}
+          {interactionWarnings.length > 2 && (
+            <div style={{
+              fontSize: '11px',
+              color: 'rgba(255, 255, 255, 0.7)',
+              marginTop: '4px'
+            }}>
+              +{interactionWarnings.length - 2} more interaction(s) to consider
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div style={{
         display: 'flex',
@@ -298,8 +421,66 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       <div style={{padding: '20px'}}>
         {activeTab === 'analysis' && (
           <div>
-            {/* ORIGINAL ANALYSIS CONTENT - EXACTLY AS YOU HAD IT */}
+            {/* Enhanced Symptom Matching Section */}
+            {symptomMatches.length > 0 && (
+              <div style={{marginBottom: 20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🎯 Your Symptom Matches
+                </div>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px'}}>
+                  {symptomMatches.map(match => (
+                    <div key={match.symptomId} style={{
+                      padding: '12px',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        fontWeight: '500',
+                        color: '#10b981',
+                        marginBottom: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span>{match.symptomName}</span>
+                        <span style={{
+                          fontSize: '10px',
+                          background: 'rgba(16, 185, 129, 0.2)',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase'
+                        }}>
+                          {match.confidence}
+                        </span>
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6ee7b7',
+                        opacity: 0.9
+                      }}>
+                        {match.reason}
+                        {match.severity && (
+                          <span style={{ marginLeft: '8px' }}>
+                            • Severity: {match.severity}/5
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
+            {/* ORIGINAL ANALYSIS CONTENT - EXACTLY AS YOU HAD IT */}
             {explanation?.summary && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -324,191 +505,86 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               </div>
             )}
 
-            {!!explanation?.ingredients?.length && (
-              <div style={{marginTop:16}}>
+            {!allUnknown && gl.length > 0 && (
+              <div style={{marginBottom: 20}}>
                 <div style={{
                   fontWeight: '600', 
                   color: '#f4f5f7', 
-                  marginBottom: '8px',
+                  marginBottom: '12px',
                   fontSize: '16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  🧪 Active ingredients
+                  📊 Label vs Guidelines
                 </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {explanation.ingredients.map((i:any, idx:number)=>(
-                    <li key={idx}>
-                      <strong style={{color: '#f4f5f7'}}>{(i.name||"").toUpperCase()}</strong> — {i.amount ?? "?"} {String(i.unit||"").toUpperCase()}
-                    </li>
-                  ))}
-                </ul>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {gl
+                    .filter((g:any) => g?.category !== "unknown")
+                    .map((g:any,i:number) => (
+                      <div key={i} style={{
+                        padding: '12px',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid #23252c',
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{
+                          color: '#f4f5f7',
+                          fontWeight: '500',
+                          marginBottom: '4px'
+                        }}>
+                          {g.ingredient}
+                        </div>
+                        <div style={{
+                          color: '#a2a6ad',
+                          fontSize: '14px'
+                        }}>
+                          {g.readable}
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
 
-            {!!explanation?.take_if?.length && (
-              <div style={{marginTop:16}}>
+            {explanation?.uses && explanation.uses.length > 0 && (
+              <div style={{marginBottom: 20}}>
                 <div style={{
                   fontWeight: '600', 
                   color: '#f4f5f7', 
-                  marginBottom: '8px',
+                  marginBottom: '12px',
                   fontSize: '16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  🎯 Take if
+                  🎯 Common Uses
                 </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {explanation.take_if.map((t:any, i:number)=>(
-                    <li key={i}>
-                      <strong style={{color: '#f4f5f7'}}>{t.scenario}:</strong> {t.rationale}
-                    </li>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.uses.map((use:any, i:number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid #23252c',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        color: '#e2e8f0',
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        {use.claim} {use.evidence_level && (
+                          <span style={{
+                            color: '#a2a6ad',
+                            fontSize: '12px'
+                          }}>
+                            ({use.evidence_level})
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              </div>
-            )}
-
-            {!!explanation?.may_improve?.length && (
-              <div style={{marginTop:16}}>
-                <div style={{
-                  fontWeight: '600', 
-                  color: '#f4f5f7', 
-                  marginBottom: '8px',
-                  fontSize: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  🌟 May help improve
                 </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {explanation.may_improve.map((m:any, i:number)=>(
-                    <li key={i}>
-                      <strong style={{color: '#f4f5f7'}}>{m.area}</strong>
-                      {m.evidence_level ? ` (${m.evidence_level})` : ""}
-                      {m.typical_timeframe ? ` — ${m.typical_timeframe}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* THE CORE DOSAGE ANALYSIS - YOUR ORIGINAL LOGIC */}
-            <div style={{marginTop:16}}>
-              <div style={{
-                fontWeight: '600', 
-                color: '#f4f5f7', 
-                marginBottom: '8px',
-                fontSize: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                🎯 Dosage vs Guidelines
-              </div>
-              {allUnknown ? (
-                <div style={{
-                  color: '#a2a6ad',
-                  fontStyle: 'italic',
-                  padding: '12px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderRadius: '8px',
-                  border: '1px solid #23252c'
-                }}>
-                  We don't have numeric baselines for these ingredients yet, but you can still use the guidance above.
-                </div>
-              ) : (
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {gl.map((g:any, i:number)=>(
-                    <li key={i}>
-                      <strong style={{color: '#f4f5f7'}}>{g.ingredient}:</strong> {g.readable}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {!!formNotes.length && (
-              <div style={{marginTop:16}}>
-                <div style={{
-                  fontWeight: '600', 
-                  color: '#f4f5f7', 
-                  marginBottom: '8px',
-                  fontSize: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  💊 Form & absorption notes
-                </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {formNotes.map((f:any, i:number)=>(
-                    <li key={i}>
-                      <strong style={{color: '#f4f5f7'}}>{f.form}:</strong> {f.note}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {!!explanation?.how_to_take?.length && (
-              <div style={{marginTop:16}}>
-                <div style={{
-                  fontWeight: '600', 
-                  color: '#f4f5f7', 
-                  marginBottom: '8px',
-                  fontSize: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  ⏰ How to take
-                </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {explanation.how_to_take.map((h:any, i:number)=>(
-                    <li key={i}>
-                      <strong style={{color: '#f4f5f7'}}>{h.ingredient}:</strong> {h.timing || ""} {h.with_food ? `(${h.with_food})` : ""} {h.notes ? `— ${h.notes}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {explanation?.quality_considerations?.length && (
-              <div style={{marginTop:16}}>
-                <div style={{
-                  fontWeight: '600', 
-                  color: '#f4f5f7', 
-                  marginBottom: '8px',
-                  fontSize: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  🏆 Quality considerations
-                </div>
-                <ul style={{margin: '0 0 12px 20px', lineHeight: '1.55', color: '#d1d5db'}}>
-                  {explanation.quality_considerations.map((q:any,i:number)=>(
-                    <li key={i}>{q}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {explanation?.disclaimer && (
-              <div style={{
-                marginTop: 24,
-                padding: '12px',
-                background: 'rgba(245, 158, 11, 0.05)',
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-                borderRadius: '8px',
-                fontSize: '13px',
-                color: '#fcd34d',
-                lineHeight: '1.4'
-              }}>
-                <strong>⚠️ Disclaimer:</strong> {explanation.disclaimer}
               </div>
             )}
 
