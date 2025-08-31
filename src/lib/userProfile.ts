@@ -1,7 +1,10 @@
-// src/lib/userProfile.ts
+// src/lib/userProfile.ts - Updated with Firebase
 "use client";
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
+import { db, auth } from './firebase';
 
 export interface UserProfile {
   // Basic Info
@@ -54,13 +57,17 @@ export interface ProfileState {
   profile: UserProfile | null;
   isComplete: boolean;
   currentStep: number;
+  user: User | null;
+  loading: boolean;
   
   // Actions
-  setProfile: (profile: Partial<UserProfile>) => void;
-  updateProfile: (updates: Partial<UserProfile>) => void;
-  clearProfile: () => void;
+  initializeAuth: () => void;
+  setProfile: (profile: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  loadProfile: (userId: string) => Promise<void>;
+  clearProfile: () => Promise<void>;
   setCurrentStep: (step: number) => void;
-  completeProfile: () => void;
+  completeProfile: () => Promise<void>;
   
   // Computed getters
   getAge: () => number | null;
@@ -94,23 +101,65 @@ export const useProfileStore = create<ProfileState>()(
       profile: null,
       isComplete: false,
       currentStep: 1,
+      user: null,
+      loading: true,
 
-      setProfile: (profileData) => {
+      initializeAuth: () => {
+        onAuthStateChanged(auth, async (user) => {
+          set({ user, loading: false });
+          
+          if (user) {
+            // Load existing profile
+            await get().loadProfile(user.uid);
+          } else {
+            // Sign in anonymously for new users
+            try {
+              const result = await signInAnonymously(auth);
+              set({ user: result.user });
+            } catch (error) {
+              console.error('Anonymous auth failed:', error);
+              set({ loading: false });
+            }
+          }
+        });
+      },
+
+      setProfile: async (profileData) => {
+        const user = get().user;
+        if (!user) {
+          console.error('No user authenticated');
+          return;
+        }
+
         const now = new Date().toISOString();
         const profile: UserProfile = {
           ...DEFAULT_PROFILE,
           ...profileData,
-          id: profileData.id || `user_${Date.now()}`,
+          id: user.uid,
           createdAt: profileData.createdAt || now,
           updatedAt: now,
         } as UserProfile;
         
-        set({ profile, updatedAt: now });
+        try {
+          // Save to Firebase
+          await setDoc(doc(db, 'profiles', user.uid), profile);
+          
+          // Update local state
+          set({ profile });
+        } catch (error) {
+          console.error('Error saving profile:', error);
+          throw error;
+        }
       },
 
-      updateProfile: (updates) => {
+      updateProfile: async (updates) => {
         const currentProfile = get().profile;
-        if (!currentProfile) return;
+        const user = get().user;
+        
+        if (!user) {
+          console.error('No user found');
+          return;
+        }
         
         const updatedProfile = {
           ...currentProfile,
@@ -118,19 +167,70 @@ export const useProfileStore = create<ProfileState>()(
           updatedAt: new Date().toISOString(),
         };
         
-        set({ profile: updatedProfile });
+        try {
+          // Use setDoc with merge option to handle both create and update
+          await setDoc(doc(db, 'profiles', user.uid), updatedProfile, { merge: true });
+          
+          // Update local state
+          set({ profile: updatedProfile });
+        } catch (error) {
+          console.error('Error updating profile:', error);
+          throw error;
+        }
       },
 
-      clearProfile: () => {
-        set({ profile: null, isComplete: false, currentStep: 1 });
+      loadProfile: async (userId) => {
+        try {
+          const docRef = doc(db, 'profiles', userId);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const profile = docSnap.data() as UserProfile;
+            set({ 
+              profile,
+              isComplete: true // Profile exists, so it's complete
+            });
+          }
+        } catch (error) {
+          console.error('Error loading profile:', error);
+        }
+      },
+
+      clearProfile: async () => {
+        const user = get().user;
+        if (user) {
+          try {
+            // Delete from Firebase (optional - you might want to keep for analytics)
+            // await deleteDoc(doc(db, 'profiles', user.uid));
+            
+            // Sign out user
+            await auth.signOut();
+          } catch (error) {
+            console.error('Error clearing profile:', error);
+          }
+        }
+        
+        set({ profile: null, isComplete: false, currentStep: 1, user: null });
       },
 
       setCurrentStep: (step) => {
         set({ currentStep: step });
       },
 
-      completeProfile: () => {
+      completeProfile: async () => {
         set({ isComplete: true });
+        
+        // Optionally update completion status in Firebase
+        const user = get().user;
+        if (user) {
+          try {
+            await updateDoc(doc(db, 'profiles', user.uid), {
+              completedAt: new Date().toISOString()
+            });
+          } catch (error) {
+            console.error('Error marking profile as complete:', error);
+          }
+        }
       },
 
       getAge: () => {
@@ -252,15 +352,15 @@ export const useProfileStore = create<ProfileState>()(
           recommendations.push('Electrolytes and recovery supplements post-workout');
         }
         
-        return recommendations.slice(0, 8); // Limit to top 8 recommendations
+        return recommendations.slice(0, 8);
       },
     }),
     {
       name: 'user-profile-storage',
       partialize: (state) => ({
-        profile: state.profile,
-        isComplete: state.isComplete,
         currentStep: state.currentStep,
+        isComplete: state.isComplete,
+        // Don't persist profile data locally since it's in Firebase
       }),
     }
   )
