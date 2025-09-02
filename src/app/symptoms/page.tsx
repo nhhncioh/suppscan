@@ -1,9 +1,13 @@
-// src/app/symptoms/page.tsx - Enhanced with Smart Suggestions, Quick Start, Severity, Gamification
+// src/app/symptoms/page.tsx - Enhanced with Smart Suggestions, Quick Start, Severity, Gamification + Firebase
 "use client";
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
 import ProgramSuggestions from '../../components/ProgramSuggestions';
 import Watchouts from '../../components/Watchouts';
+// Firebase imports
+import { useProfileStore } from '@/lib/userProfile';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // Adjust import path as needed
 
 // Enhanced symptom structure with severity
 interface SymptomData {
@@ -500,22 +504,49 @@ export default function SymptomsPage() {
   const [healthStreak, setHealthStreak] = useState(0);
   const [weeklyProgress, setWeeklyProgress] = useState<Array<{ date: string, mood: string }>>([]);
 
-  // Load data from localStorage
+  // Add this to your component:
+  const { profile, user } = useProfileStore();
+
+  // Load data from localStorage or Firebase profile
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Load selected symptoms
-      const saved = localStorage.getItem('selectedSymptoms');
-      if (saved) {
-        try {
-          setSelectedSymptoms(JSON.parse(saved));
-        } catch {
-          setSelectedSymptoms([]);
-        }
+      // If user is authenticated and has a profile, prioritize Firebase data
+      if (user && profile?.activeSymptoms) {
+        // Convert profile activeSymptoms (array of IDs) to full SelectedSymptom objects
+        const symptomObjects: SelectedSymptom[] = profile.activeSymptoms.map(symptomId => {
+          // Find the symptom data from categories
+          let foundSymptom: SymptomData | null = null;
+          Object.values(SYMPTOM_CATEGORIES).forEach(category => {
+            const symptom = category.symptoms.find(s => s.id === symptomId);
+            if (symptom) foundSymptom = symptom;
+          });
+
+          if (foundSymptom) {
+            return {
+              ...foundSymptom,
+              severity: profile.symptomSeverity?.[symptomId] || 3,
+              dateAdded: profile.symptomDateAdded?.[symptomId] || new Date().toISOString()
+            };
+          }
+          return null;
+        }).filter((s): s is SelectedSymptom => s !== null);
+
+        setSelectedSymptoms(symptomObjects);
       } else {
-        setShowQuickStart(true); // Show quick start for new users
+        // Fallback to localStorage if no Firebase data
+        const saved = localStorage.getItem('selectedSymptoms');
+        if (saved) {
+          try {
+            setSelectedSymptoms(JSON.parse(saved));
+          } catch {
+            setSelectedSymptoms([]);
+          }
+        } else {
+          setShowQuickStart(true);
+        }
       }
 
-      // Load achievements and progress
+      // Load achievements and progress (still from localStorage for now)
       const savedAchievements = localStorage.getItem('healthAchievements');
       if (savedAchievements) {
         setAchievements(JSON.parse(savedAchievements));
@@ -531,7 +562,7 @@ export default function SymptomsPage() {
         setWeeklyProgress(JSON.parse(savedProgress));
       }
     }
-  }, []);
+  }, [user, profile]);
 
   // Update smart suggestions when symptoms change
   useEffect(() => {
@@ -539,22 +570,72 @@ export default function SymptomsPage() {
     setSmartSuggestions(suggestions);
   }, [selectedSymptoms]);
 
-  // Save data when it changes
+  // Save data when it changes - both locally and to Firebase
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Always save to localStorage as backup
       localStorage.setItem('selectedSymptoms', JSON.stringify(selectedSymptoms));
       localStorage.setItem('healthAchievements', JSON.stringify(achievements));
       localStorage.setItem('healthStreak', healthStreak.toString());
       localStorage.setItem('weeklyProgress', JSON.stringify(weeklyProgress));
-    }
-  }, [selectedSymptoms, achievements, healthStreak, weeklyProgress]);
 
-  const toggleSymptom = (symptomData: SymptomData, categoryColor: string) => {
+      // Save to Firebase if user is authenticated
+      if (user && profile) {
+        const symptomIds = selectedSymptoms.map(s => s.id);
+        const symptomSeverity = selectedSymptoms.reduce((acc, s) => {
+          acc[s.id] = s.severity;
+          return acc;
+        }, {} as Record<string, number>);
+        const symptomDateAdded = selectedSymptoms.reduce((acc, s) => {
+          acc[s.id] = s.dateAdded;
+          return acc;
+        }, {} as Record<string, string>);
+
+        updateDoc(doc(db, 'profiles', user.uid), {
+          activeSymptoms: symptomIds,
+          symptomSeverity: symptomSeverity,
+          symptomDateAdded: symptomDateAdded,
+          updatedAt: new Date().toISOString()
+        }).catch(error => {
+          console.error('Error updating Firebase profile:', error);
+          // Could show user-friendly error message here
+        });
+      }
+    }
+  }, [selectedSymptoms, achievements, healthStreak, weeklyProgress, user, profile]);
+
+  // Modified toggleSymptom function to save to Firebase:
+  const toggleSymptom = async (symptomData: SymptomData, categoryColor: string) => {
     const existingIndex = selectedSymptoms.findIndex(s => s.id === symptomData.id);
 
     if (existingIndex >= 0) {
       // Remove symptom
-      setSelectedSymptoms(prev => prev.filter(s => s.id !== symptomData.id));
+      const newSelected = selectedSymptoms.filter(s => s.id !== symptomData.id);
+      setSelectedSymptoms(newSelected);
+      
+      // Save to Firebase if user has profile
+      if (user && profile) {
+        const symptomIds = newSelected.map(s => s.id);
+        const symptomSeverity = newSelected.reduce((acc, s) => {
+          acc[s.id] = s.severity;
+          return acc;
+        }, {} as Record<string, number>);
+        const symptomDateAdded = newSelected.reduce((acc, s) => {
+          acc[s.id] = s.dateAdded;
+          return acc;
+        }, {} as Record<string, string>);
+
+        try {
+          await updateDoc(doc(db, 'profiles', user.uid), {
+            activeSymptoms: symptomIds,
+            symptomSeverity: symptomSeverity,
+            symptomDateAdded: symptomDateAdded,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Error updating Firebase profile:', error);
+        }
+      }
     } else {
       // Add symptom with default severity
       const newSymptom: SelectedSymptom = {
@@ -562,17 +643,58 @@ export default function SymptomsPage() {
         severity: 3, // Default to moderate
         dateAdded: new Date().toISOString()
       };
-      setSelectedSymptoms(prev => [...prev, newSymptom]);
+      const newSelected = [...selectedSymptoms, newSymptom];
+      setSelectedSymptoms(newSelected);
 
       // Check for achievements
-      checkAchievements([...selectedSymptoms, newSymptom]);
+      checkAchievements(newSelected);
+
+      // Save to Firebase
+      if (user && profile) {
+        const symptomIds = newSelected.map(s => s.id);
+        const symptomSeverity = newSelected.reduce((acc, s) => {
+          acc[s.id] = s.severity;
+          return acc;
+        }, {} as Record<string, number>);
+        const symptomDateAdded = newSelected.reduce((acc, s) => {
+          acc[s.id] = s.dateAdded;
+          return acc;
+        }, {} as Record<string, string>);
+
+        try {
+          await updateDoc(doc(db, 'profiles', user.uid), {
+            activeSymptoms: symptomIds,
+            symptomSeverity: symptomSeverity,
+            symptomDateAdded: symptomDateAdded,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error('Error updating Firebase profile:', error);
+        }
+      }
     }
   };
 
-  const updateSeverity = (symptomId: string, severity: number) => {
-    setSelectedSymptoms(prev =>
-      prev.map(s => (s.id === symptomId ? { ...s, severity } : s))
-    );
+  const updateSeverity = async (symptomId: string, severity: number) => {
+    const newSelected = selectedSymptoms.map(s => (s.id === symptomId ? { ...s, severity } : s));
+    setSelectedSymptoms(newSelected);
+
+    // Save severity update to Firebase
+    if (user && profile) {
+      const symptomSeverity = newSelected.reduce((acc, s) => {
+        acc[s.id] = s.severity;
+        return acc;
+      }, {} as Record<string, number>);
+
+      try {
+        await updateDoc(doc(db, 'profiles', user.uid), {
+          symptomSeverity: symptomSeverity,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error updating severity in Firebase:', error);
+      }
+    }
   };
 
   const getSmartSuggestions = (): string[] => {
@@ -744,7 +866,12 @@ export default function SymptomsPage() {
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header with Back Button */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '16px' 
+          }}>
             <Link
               href="/"
               style={{
@@ -759,7 +886,45 @@ export default function SymptomsPage() {
             >
               ← Back to Scanner
             </Link>
+
+            {user && (
+              <Link
+                href="/profile"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'var(--accent2)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                👤 My Profile
+              </Link>
+            )}
           </div>
+
+          {/* User Status - Show if logged in */}
+          {user && (
+            <div
+              style={{
+                display: 'inline-block',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '20px',
+                marginBottom: '16px',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}
+            >
+              ✅ Synced to your profile
+            </div>
+          )}
 
           {/* Health Streak and Achievements */}
           {healthStreak > 0 && (
@@ -793,6 +958,7 @@ export default function SymptomsPage() {
           </h1>
           <p style={{ color: 'var(--muted)', fontSize: '1.1rem', margin: 0 }}>
             Select the symptoms you're experiencing to get personalized supplement recommendations
+            {user ? ' (automatically saved to your profile)' : ' (sign in to sync across devices)'}
           </p>
         </div>
 

@@ -40,6 +40,22 @@ export interface UserProfile {
   budgetRange: 'budget' | 'mid-range' | 'premium';
   brandPreferences: string[];
   
+  // Symptom Tracking - NEW
+  activeSymptoms: string[]; // Currently selected symptoms
+  symptomHistory: {
+    [symptomId: string]: {
+      frequency: number;
+      lastReported: string;
+      averageSeverity: number;
+      entries: Array<{
+        symptomId: string;
+        severity: number;
+        timestamp: string;
+        notes?: string;
+      }>;
+    };
+  };
+  
   // Tracking Preferences
   trackingEnabled: boolean;
   reminderSettings: {
@@ -85,6 +101,8 @@ const DEFAULT_PROFILE: Partial<UserProfile> = {
   dietaryRestrictions: [],
   preferredForms: [],
   brandPreferences: [],
+  activeSymptoms: [], // NEW
+  symptomHistory: {}, // NEW
   sleepHours: 8,
   stressLevel: 5,
   trackingEnabled: true,
