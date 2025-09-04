@@ -1,4 +1,4 @@
-﻿// src/components/ResultCard.tsx - With Inline Personalized Section
+﻿// src/components/ResultCard.tsx - Complete Enhanced Version with Review System
 "use client";
 
 import ProductLink from "@/components/ProductLink";
@@ -12,6 +12,9 @@ import { getPersonalizedAnalysis } from '@/lib/profileIntegration';
 import { User, Target, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
+// Import review system components
+import { PostScanReviewPrompt, ProductInsightsDisplay } from './ReviewSystem';
+
 const ReviewsTab = dynamic(() => import('./ReviewsTab'), {
   loading: () => <div style={{ padding: 16, textAlign: 'center', color: '#666' }}>Loading reviews...</div>
 });
@@ -23,7 +26,7 @@ const PriceWidget = dynamic(() => import('./PriceWidget'), {
 type ConfidenceT = { level: string; score: number; reasons?: string[] } | null;
 type Props = { explanation: any; extracted?: any; barcode?: string | null; confidence?: ConfidenceT; };
 
-// Inline PersonalizedSection Component
+// Inline PersonalizedSection Component - PRESERVED
 function PersonalizedSection({ supplementData }: {
   supplementData: {
     name?: string;
@@ -275,12 +278,14 @@ function PersonalizedSection({ supplementData }: {
 }
 
 export default function ResultCard({ explanation, extracted, barcode, confidence }: Props) {
-  const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price' | 'community'>('analysis');
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [symptomMatches, setSymptomMatches] = useState<SymptomMatch[]>([]);
   const [personalizedMessage, setPersonalizedMessage] = useState<string>('');
   const [interactionWarnings, setInteractionWarnings] = useState<InteractionWarning[]>([]);
   const [overallScore, setOverallScore] = useState<number>(0);
+  const [showReviewPrompt, setShowReviewPrompt] = useState(true);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
   
   useEffect(() => {
     const handleSwitchToPriceTab = () => {
@@ -341,7 +346,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       .catch(()=>{});
   }, [brandStr, productName, retailFirstIngredient, retailAmount, retailUnit, manufacturerUrl]);
 
-  // Enhanced symptom matching with interactions
+  // Enhanced symptom matching with interactions - PRESERVED
   useEffect(() => {
     if (explanation || extracted) {
       const supplementProfile = {
@@ -390,7 +395,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
     children, 
     count 
   }: { 
-    tab: 'analysis' | 'reviews' | 'price'; 
+    tab: 'analysis' | 'reviews' | 'price' | 'community'; 
     children: React.ReactNode;
     count?: number;
   }) => (
@@ -443,7 +448,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       marginTop: '16px'
     }}>
       
-      {/* Enhanced Header */}
+      {/* Enhanced Header - PRESERVED */}
       <div style={{
         padding: '20px',
         background: 'linear-gradient(135deg, #1a1d24 0%, #141821 100%)',
@@ -548,7 +553,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
         </div>
       </div>
 
-      {/* Personalized Message Banner */}
+      {/* Personalized Message Banner - PRESERVED */}
       {personalizedMessage && (
         <div style={{
           margin: '0 20px 16px',
@@ -611,7 +616,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
         </div>
       )}
 
-      {/* Interaction Warnings */}
+      {/* Interaction Warnings - PRESERVED */}
       {interactionWarnings.length > 0 && (
         <div style={{
           margin: '0 20px 16px',
@@ -657,7 +662,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
         </div>
       )}
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - ENHANCED WITH NEW COMMUNITY TAB */}
       <div style={{
         display: 'flex',
         background: '#0e0f14',
@@ -668,6 +673,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       }}>
         <TabButton tab="analysis">🔬 Analysis</TabButton>
         <TabButton tab="reviews" count={reviewCount}>⭐ Reviews</TabButton>
+        <TabButton tab="community">👥 Community</TabButton>
         <TabButton tab="price">💰 Pricing</TabButton>
       </div>
 
@@ -675,7 +681,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       <div style={{padding: '20px'}}>
         {activeTab === 'analysis' && (
           <div>
-            {/* PERSONALIZED ANALYSIS SECTION - NEW */}
+            {/* PERSONALIZED ANALYSIS SECTION - PRESERVED */}
             <PersonalizedSection 
               supplementData={{
                 name: productName,
@@ -687,7 +693,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               }}
             />
 
-            {/* Enhanced Symptom Matching Section */}
+            {/* Enhanced Symptom Matching Section - PRESERVED */}
             {symptomMatches.length > 0 && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -746,7 +752,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               </div>
             )}
             
-            {/* ORIGINAL ANALYSIS CONTENT - EXACTLY AS YOU HAD IT */}
+            {/* ALL ORIGINAL ANALYSIS CONTENT - EXACTLY PRESERVED */}
             {explanation?.summary && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -928,6 +934,76 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
             brandName={brandStr}
             onReviewCountChange={setReviewCount}
           />
+        )}
+
+        {/* NEW COMMUNITY TAB - Enhanced Review System Integration */}
+        {activeTab === 'community' && (
+          <div>
+            {/* Product Insights Display */}
+            <ProductInsightsDisplay
+              productName={productName}
+              brandName={brandStr}
+              barcode={barcode || undefined}
+            />
+
+            {/* Post-Scan Review Prompt */}
+            {showReviewPrompt && (
+              <div style={{ marginTop: '24px' }}>
+                <PostScanReviewPrompt
+                  productName={productName}
+                  brandName={brandStr}
+                  barcode={barcode || undefined}
+                  onReviewSubmitted={() => {
+                    setReviewSubmitted(true);
+                    setShowReviewPrompt(false);
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Success message after review submission */}
+            {reviewSubmitted && (
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '8px',
+                padding: '16px',
+                marginTop: '16px',
+                textAlign: 'center'
+              }}>
+                <div style={{ color: '#10b981', fontSize: '1.25rem', marginBottom: '8px' }}>
+                  ✅ Review Submitted!
+                </div>
+                <div style={{ color: 'var(--text)', fontSize: '14px' }}>
+                  Thanks for sharing your experience! Your review helps others make better decisions and will improve our community insights.
+                </div>
+              </div>
+            )}
+
+            {/* Community Features Coming Soon */}
+            <div style={{
+              marginTop: '24px',
+              padding: '20px',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '12px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🚀</div>
+              <h3 style={{
+                color: '#3b82f6',
+                fontSize: '1.25rem',
+                fontWeight: '600',
+                marginBottom: '8px'
+              }}>
+                Community Features Coming Soon
+              </h3>
+              <p style={{ color: 'var(--muted)', fontSize: '14px', margin: 0 }}>
+                We're building advanced community features including follow-up effectiveness tracking, 
+                ingredient-based reviews, and symptom outcome analysis. Stay tuned!
+              </p>
+            </div>
+          </div>
         )}
 
         {activeTab === 'price' && <PriceWidget />}
