@@ -3,12 +3,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import ResultCard from "@/components/ResultCard";
-import HistoryPanel from "@/components/HistoryPanel";
 import { useProfile } from "@/lib/profile";
 import type { StackItem } from "@/types/suppscan";
 import { useStack } from "@/lib/stack";
 import { BrowserMultiFormatReader } from "@zxing/browser";
-import { dataUrlFromFile, useHistoryStore } from "@/lib/history";
 import { detectBadgesFromText, detectTrustedMarksFromText, scoreConfidence } from "@/lib/confidence";
 import type { Confidence } from "@/lib/confidence";
 import { Camera, Upload, RotateCcw, X, Zap, CheckCircle } from 'lucide-react';
@@ -33,7 +31,6 @@ export default function ImageUpload({ onReady, useMobileInterface = false }: Pro
 
   const [profile] = useProfile();
   const stack = useStack();
-  const history = useHistoryStore();
 
   // Detect if user is on mobile
   const [isMobile, setIsMobile] = useState(false);
@@ -260,19 +257,6 @@ export default function ImageUpload({ onReady, useMobileInterface = false }: Pro
         explanation: json2.explanation
       }));
 
-      const imgDataUrl = await dataUrlFromFile(file);
-      history.add({
-        id: Math.random().toString(36).slice(2),
-        when: Date.now(),
-        brand: payload.brand,
-        product: payload.product,
-        barcode: json.barcode || null,
-        imgDataUrl,
-        ingredients: payload.ingredients,
-        badges: json.extracted.badges,
-        marks: json.extracted.marks,
-        explanation: json2.explanation
-      });
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
@@ -679,7 +663,6 @@ export default function ImageUpload({ onReady, useMobileInterface = false }: Pro
               enhancedMode={true}
               userProfile={profile}
             />
-            <HistoryPanel />
           </div>
         )}
 
@@ -746,7 +729,6 @@ export default function ImageUpload({ onReady, useMobileInterface = false }: Pro
                 {explaining ? "Generating summary…" : "Click Analyze to generate guidance."}
               </div>
             )}
-            <HistoryPanel />
           </div>
         </div>
       )}

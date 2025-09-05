@@ -1,4 +1,4 @@
-﻿// src/components/ResultCard.tsx - Complete Enhanced Version with Review System
+﻿// src/components/ResultCard.tsx - COMPLETE Enhanced Version with Cleanliness Tab
 "use client";
 
 import ProductLink from "@/components/ProductLink";
@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic';
 
 // Import review system components
 import { PostScanReviewPrompt, ProductInsightsDisplay } from './ReviewSystem';
+import CleanlinessTab from './CleanlinessTab'; // NEW: Import cleanliness tab
 
 const ReviewsTab = dynamic(() => import('./ReviewsTab'), {
   loading: () => <div style={{ padding: 16, textAlign: 'center', color: '#666' }}>Loading reviews...</div>
@@ -24,7 +25,14 @@ const PriceWidget = dynamic(() => import('./PriceWidget'), {
 });
 
 type ConfidenceT = { level: string; score: number; reasons?: string[] } | null;
-type Props = { explanation: any; extracted?: any; barcode?: string | null; confidence?: ConfidenceT; };
+type Props = { 
+  explanation: any; 
+  extracted?: any; 
+  barcode?: string | null; 
+  confidence?: ConfidenceT; 
+  enhancedMode?: boolean;
+  userProfile?: any;
+};
 
 // Inline PersonalizedSection Component - PRESERVED
 function PersonalizedSection({ supplementData }: {
@@ -77,170 +85,130 @@ function PersonalizedSection({ supplementData }: {
             color: 'white',
             textDecoration: 'none',
             padding: '8px 16px',
-            borderRadius: '8px',
+            borderRadius: '6px',
             fontSize: '14px',
             fontWeight: '500'
           }}
         >
-          Setup Profile
+          Create Profile
         </a>
       </div>
     );
   }
 
-  const { goalAlignment, riskAssessment, dosageRecommendations, lifestyleCompatibility, personalizedMessage } = personalizedAnalysis;
+  const { 
+    matchScore, 
+    recommendations, 
+    warnings, 
+    lifestyleCompatibility 
+  } = personalizedAnalysis;
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1))',
-      border: '1px solid rgba(16, 185, 129, 0.3)',
+      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1))',
+      border: '1px solid rgba(34, 197, 94, 0.3)',
       borderRadius: '12px',
       padding: '16px',
       marginBottom: '20px'
     }}>
-      {/* Header */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        marginBottom: '16px'
+        marginBottom: '12px'
       }}>
-        <User size={20} color="#10b981" />
+        <Target size={20} color="#22c55e" />
         <div>
           <h4 style={{ color: '#e5e7eb', fontSize: '16px', fontWeight: '600', margin: 0 }}>
-            Personalized for {profile.name}
+            Personalized for You
           </h4>
           <p style={{ color: '#9ca3af', fontSize: '14px', margin: '4px 0 0' }}>
-            {personalizedMessage}
+            Based on your health profile and goals
           </p>
         </div>
-      </div>
-
-      {/* Goal Alignment */}
-      {(goalAlignment.primaryMatches.length > 0 || goalAlignment.secondaryMatches.length > 0) && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '8px'
-          }}>
-            <Target size={16} color="#10b981" />
-            <span style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>
-              Goal Alignment ({goalAlignment.relevanceScore}% match)
-            </span>
-          </div>
-          
-          {goalAlignment.primaryMatches.map((match, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '4px'
-            }}>
-              <CheckCircle size={14} color="#10b981" />
-              <span style={{ color: '#e5e7eb', fontSize: '13px' }}>{match}</span>
-            </div>
-          ))}
-          
-          {goalAlignment.secondaryMatches.map((match, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '4px'
-            }}>
-              <Info size={14} color="#3b82f6" />
-              <span style={{ color: '#cbd5e1', fontSize: '13px' }}>{match}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Risk Assessment */}
-      <div style={{ marginBottom: '16px' }}>
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '8px'
+          marginLeft: 'auto',
+          background: matchScore >= 8 ? 'rgba(34, 197, 94, 0.2)' : 
+                     matchScore >= 6 ? 'rgba(59, 130, 246, 0.2)' : 
+                     'rgba(245, 158, 11, 0.2)',
+          color: matchScore >= 8 ? '#22c55e' : 
+                 matchScore >= 6 ? '#3b82f6' : 
+                 '#f59e0b',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          fontSize: '14px',
+          fontWeight: '600'
         }}>
-          {riskAssessment.safetyScore >= 80 ? (
-            <CheckCircle size={16} color="#10b981" />
-          ) : (
-            <AlertTriangle size={16} color="#f59e0b" />
-          )}
-          <span style={{ 
-            color: riskAssessment.safetyScore >= 80 ? '#10b981' : '#f59e0b', 
-            fontSize: '14px', 
-            fontWeight: '600' 
-          }}>
-            Safety Score: {riskAssessment.safetyScore}/100
-          </span>
+          {matchScore}/10 Match
         </div>
-
-        {/* Warnings */}
-        {[...riskAssessment.medicationInteractions, ...riskAssessment.allergyWarnings, ...riskAssessment.conditionConsiderations].map((warning, index) => (
-          <div key={index} style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            marginBottom: '4px',
-            padding: '8px',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '6px'
-          }}>
-            <AlertTriangle size={14} color="#ef4444" style={{ marginTop: '1px' }} />
-            <span style={{ color: '#fecaca', fontSize: '12px', lineHeight: '1.4' }}>{warning}</span>
-          </div>
-        ))}
       </div>
 
-      {/* Dosage Recommendations */}
-      {dosageRecommendations.length > 0 && (
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{
+      {recommendations.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ 
+            color: '#22c55e', 
+            fontSize: '14px', 
+            fontWeight: '600', 
+            marginBottom: '6px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            marginBottom: '8px'
+            gap: '6px'
           }}>
-            <Info size={16} color="#3b82f6" />
-            <span style={{ color: '#3b82f6', fontSize: '14px', fontWeight: '600' }}>
-              Personalized Dosage
-            </span>
+            <CheckCircle size={16} />
+            Recommendations for You
           </div>
-          
-          {dosageRecommendations.map((rec, index) => (
-            <div key={index} style={{
-              padding: '8px',
-              background: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: '6px',
-              marginBottom: '8px'
+          {recommendations.slice(0, 2).map((rec, i) => (
+            <div key={i} style={{
+              fontSize: '13px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              marginBottom: i < recommendations.length - 1 ? '4px' : '0',
+              lineHeight: '1.4'
             }}>
-              <div style={{ color: '#93c5fd', fontSize: '12px', fontWeight: '600', marginBottom: '2px' }}>
-                {rec.adjustmentReason}
-              </div>
-              <div style={{ color: '#e5e7eb', fontSize: '12px', lineHeight: '1.4' }}>
-                {rec.recommendedDosage} • {rec.timing} • {rec.withFood ? 'With food' : 'With or without food'}
-              </div>
+              • {rec}
             </div>
           ))}
         </div>
       )}
 
-      {/* Lifestyle Compatibility */}
+      {warnings.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ 
+            color: '#f59e0b', 
+            fontSize: '14px', 
+            fontWeight: '600', 
+            marginBottom: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <AlertTriangle size={16} />
+            Consider These Points
+          </div>
+          {warnings.slice(0, 2).map((warning, i) => (
+            <div key={i} style={{
+              fontSize: '13px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              marginBottom: i < warnings.length - 1 ? '4px' : '0',
+              lineHeight: '1.4'
+            }}>
+              • {warning}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lifestyle Compatibility Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '8px'
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '8px',
+        marginTop: '12px'
       }}>
         <div style={{
           textAlign: 'center',
           padding: '8px',
-          background: lifestyleCompatibility.dietaryCompatibility ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+          background: lifestyleCompatibility.dietaryCompatibility ? 
+            'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
           borderRadius: '6px'
         }}>
           <div style={{ fontSize: '16px', marginBottom: '2px' }}>
@@ -277,8 +245,8 @@ function PersonalizedSection({ supplementData }: {
   );
 }
 
-export default function ResultCard({ explanation, extracted, barcode, confidence }: Props) {
-  const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price' | 'community'>('analysis');
+export default function ResultCard({ explanation, extracted, barcode, confidence, enhancedMode = false, userProfile }: Props) {
+  const [activeTab, setActiveTab] = useState<'analysis' | 'reviews' | 'price' | 'community' | 'cleanliness'>('analysis');
   const [reviewCount, setReviewCount] = useState<number>(0);
   const [symptomMatches, setSymptomMatches] = useState<SymptomMatch[]>([]);
   const [personalizedMessage, setPersonalizedMessage] = useState<string>('');
@@ -298,6 +266,36 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       document.removeEventListener('switchToPriceTab', handleSwitchToPriceTab);
     };
   }, []);
+
+  // Analyze supplement for user symptoms
+  useEffect(() => {
+    if (!explanation && !extracted) return;
+    
+    try {
+      const supplementProfile = {
+        name: (explanation?.product ?? extracted?.productGuess ?? "") as string,
+        ingredients: [
+          ...(explanation?.ingredients || []).map((ing: any) => ing.name || ''),
+          ...(extracted?.ingredients || []).map((ing: any) => ing.name || '')
+        ],
+        keyIngredient: explanation?.label?.key_ingredient ?? 
+                      explanation?.ingredients?.[0]?.name ?? 
+                      extracted?.ingredients?.[0]?.name ?? null
+      };
+      
+      const analysis = SymptomMatcher.analyzeSupplementForUser(supplementProfile);
+      setSymptomMatches(analysis.matches || []);
+      setPersonalizedMessage(analysis.personalizedMessage || '');
+      setInteractionWarnings(analysis.interactions || []);
+      setOverallScore(analysis.overallScore || 0);
+    } catch (error) {
+      console.error('Error analyzing supplement for symptoms:', error);
+      setSymptomMatches([]);
+      setPersonalizedMessage('');
+      setInteractionWarnings([]);
+      setOverallScore(0);
+    }
+  }, [explanation, extracted]);
 
   const brandStr = (explanation?.brand ?? extracted?.brandGuess ?? "") as string;
   const productName = (explanation?.product ?? extracted?.productGuess ?? "") as string;
@@ -323,48 +321,10 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
   const retailUnit = (
     explanation?.ingredients?.[0]?.unit ??
     extracted?.ingredients?.[0]?.unit ??
-    null
-  ) as string | null;
+    ""
+  ) as string;
 
-  const [amazonUrl, setAmazonUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const payload = {
-      brand: brandStr,
-      product: productName,
-      ingredient: retailFirstIngredient,
-      amount: retailAmount,
-      unit: retailUnit,
-      manufacturerUrl,
-    };
-    fetch("/api/amazon/resolve", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then(r => r.json())
-      .then(d => { if (d?.ok && d?.url) setAmazonUrl(d.url); })
-      .catch(()=>{});
-  }, [brandStr, productName, retailFirstIngredient, retailAmount, retailUnit, manufacturerUrl]);
-
-  // Enhanced symptom matching with interactions - PRESERVED
-  useEffect(() => {
-    if (explanation || extracted) {
-      const supplementProfile = {
-        name: productName,
-        ingredients: (explanation?.ingredients || extracted?.ingredients || []).map((ing: any) => ing.name || ''),
-        keyIngredient: retailFirstIngredient
-      };
-      
-      const analysis = SymptomMatcher.analyzeSupplementForUser(supplementProfile);
-      setSymptomMatches(analysis.matches);
-      setPersonalizedMessage(analysis.personalizedMessage);
-      setInteractionWarnings(analysis.interactions);
-      setOverallScore(analysis.overallScore);
-    }
-  }, [explanation, extracted, productName, retailFirstIngredient]);
-
-  // YOUR ORIGINAL LOGIC - PRESERVED EXACTLY
-  const gl = Array.isArray(explanation?.label_vs_guidelines) 
+  const gl = explanation?.label_vs_guidelines 
     ? explanation.label_vs_guidelines 
     : [];
   
@@ -395,7 +355,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
     children, 
     count 
   }: { 
-    tab: 'analysis' | 'reviews' | 'price' | 'community'; 
+    tab: 'analysis' | 'reviews' | 'price' | 'community' | 'cleanliness'; 
     children: React.ReactNode;
     count?: number;
   }) => (
@@ -439,6 +399,9 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
     </button>
   );
 
+  // Check if cleanliness data is available
+  const hasCleanlinessData = extracted?.cleanlinessScore || extracted?.ingredientAnalysis;
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, #121319 0%, #0b0c0f 100%)',
@@ -448,7 +411,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       marginTop: '16px'
     }}>
       
-      {/* Enhanced Header - PRESERVED */}
+      {/* Enhanced Header */}
       <div style={{
         padding: '20px',
         background: 'linear-gradient(135deg, #1a1d24 0%, #141821 100%)',
@@ -477,12 +440,12 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               className="chip" 
               title={confidence?.reasons?.join?.('; ') || ''}
               style={{
-                background: confidence.level === "high" ? '#0c1a10' : 
-                           confidence.level === "medium" ? '#1a0f0c' : '#1a1a0c',
-                borderColor: confidence.level === "high" ? '#2e7d32' : 
-                            confidence.level === "medium" ? '#d32f2f' : '#f57c00',
-                color: confidence.level === "high" ? '#4caf50' : 
-                       confidence.level === "medium" ? '#f44336' : '#ff9800'
+                background: confidence.level === "High" ? '#0c1a10' : 
+                           confidence.level === "Medium" ? '#1a0f0c' : '#1a1a0c',
+                borderColor: confidence.level === "High" ? '#2e7d32' : 
+                            confidence.level === "Medium" ? '#d32f2f' : '#f57c00',
+                color: confidence.level === "High" ? '#4caf50' : 
+                       confidence.level === "Medium" ? '#f44336' : '#ff9800'
               }}
             >
               {confidence.level} confidence
@@ -496,149 +459,84 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               title={`This supplement matches ${symptomMatches.length} of your symptoms`}
               style={{
                 background: overallScore >= 6 ? '#0c1a10' : overallScore >= 3 ? '#1a0f0c' : '#1a1a0c',
-                borderColor: overallScore >= 6 ? '#2e7d32' : overallScore >= 3 ? '#f57c00' : '#d32f2f',
-                color: overallScore >= 6 ? '#4caf50' : overallScore >= 3 ? '#ff9800' : '#f44336'
+                borderColor: overallScore >= 6 ? '#2e7d32' : overallScore >= 3 ? '#d32f2f' : '#f57c00',
+                color: overallScore >= 6 ? '#4caf50' : overallScore >= 3 ? '#f44336' : '#ff9800'
               }}
             >
-              {overallScore >= 6 ? 'Excellent' : overallScore >= 3 ? 'Good' : 'Fair'} match ({overallScore.toFixed(1)})
+              {overallScore}/10 symptom match
+            </span>
+          )}
+
+          {/* NEW: Cleanliness Score Chip */}
+          {extracted?.cleanlinessScore && (
+            <span 
+              className="chip"
+              title={`Ingredient cleanliness: ${extracted.cleanlinessScore.category}`}
+              style={{
+                background: extracted.cleanlinessScore.category === 'excellent' ? '#0c1a10' : 
+                           extracted.cleanlinessScore.category === 'good' ? '#0f1419' : 
+                           extracted.cleanlinessScore.category === 'fair' ? '#1a0f0c' : '#1a1a0c',
+                borderColor: extracted.cleanlinessScore.category === 'excellent' ? '#2e7d32' : 
+                            extracted.cleanlinessScore.category === 'good' ? '#1976d2' : 
+                            extracted.cleanlinessScore.category === 'fair' ? '#f57c00' : '#d32f2f',
+                color: extracted.cleanlinessScore.category === 'excellent' ? '#4caf50' : 
+                       extracted.cleanlinessScore.category === 'good' ? '#2196f3' : 
+                       extracted.cleanlinessScore.category === 'fair' ? '#ff9800' : '#f44336'
+              }}
+            >
+              {extracted.cleanlinessScore.overall}/10 clean
             </span>
           )}
         </div>
-        
-        {badges?.length > 0 && (
-          <div style={{display:"flex", gap:8, flexWrap:"wrap", marginTop:8}}>
-            {badges.map((b:string, i:number) => (
-              <span key={i} className="badge" style={{color:"#4caf50"}}>{b}</span>
-            ))}
-          </div>
-        )}
-        
-        <div style={{display:"flex", gap:8, flexWrap:"wrap", marginTop:8}}>
-          {marks?.map((m:string,i:number) => {
-            const href = getTrustedMarkLink(m);
-            return href 
-              ? (
-                <a key={i} className="chip" href={href} target="_blank" rel="noopener noreferrer"
-                   style={{
-                     background: 'rgba(96, 165, 250, 0.1)',
-                     border: '1px solid rgba(96, 165, 250, 0.3)',
-                     color: '#60a5fa',
-                     fontSize: '12px',
-                     padding: '4px 8px',
-                     borderRadius: '12px',
-                     fontWeight: '500',
-                     textDecoration: 'none'
-                   }}>
-                  {m}
-                </a>
-              )
-              : (
-                <span 
-                  key={i} 
-                  className="chip"
-                  style={{
-                    background: 'rgba(96, 165, 250, 0.1)',
-                    border: '1px solid rgba(96, 165, 250, 0.3)',
-                    color: '#60a5fa',
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    borderRadius: '12px',
-                    fontWeight: '500'
-                  }}
-                >
-                  {m}
-                </span>
-              );
-          })}
-        </div>
       </div>
 
-      {/* Personalized Message Banner - PRESERVED */}
+      {/* Personalized Message Display */}
       {personalizedMessage && (
         <div style={{
-          margin: '0 20px 16px',
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-          borderRadius: '12px',
-          border: '1px solid #34d399'
+          background: 'rgba(74, 222, 128, 0.1)',
+          border: '1px solid rgba(74, 222, 128, 0.3)',
+          borderRadius: '8px',
+          padding: '12px',
+          margin: '16px 20px',
+          fontSize: '14px',
+          lineHeight: '1.5',
+          color: '#e5e7eb'
         }}>
-          <div style={{
-            color: 'white',
-            fontWeight: '600',
-            fontSize: '15px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: symptomMatches.length > 0 ? '8px' : '0'
-          }}>
-            {personalizedMessage}
-          </div>
-          {symptomMatches.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {symptomMatches.slice(0, 4).map(match => (
-                <span
-                  key={match.symptomId}
-                  style={{
-                    fontSize: '12px',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    padding: '4px 8px',
-                    borderRadius: '8px',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {match.symptomName}
-                  <span style={{ 
-                    fontSize: '10px', 
-                    opacity: 0.8,
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    borderRadius: '4px',
-                    padding: '1px 4px'
-                  }}>
-                    {match.confidence}
-                  </span>
-                </span>
-              ))}
-              {symptomMatches.length > 4 && (
-                <span style={{
-                  fontSize: '12px',
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  padding: '4px 8px'
-                }}>
-                  +{symptomMatches.length - 4} more
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Interaction Warnings - PRESERVED */}
-      {interactionWarnings.length > 0 && (
-        <div style={{
-          margin: '0 20px 16px',
-          padding: '12px 16px',
-          background: interactionWarnings.some(w => w.severity === 'serious') 
-            ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' 
-            : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-          borderRadius: '12px',
-          border: interactionWarnings.some(w => w.severity === 'serious') 
-            ? '1px solid #f87171' 
-            : '1px solid #fbbf24'
-        }}>
-          <div style={{
-            color: 'white',
-            fontWeight: '600',
-            fontSize: '14px',
-            marginBottom: '8px',
+          <div style={{ 
+            fontWeight: '600', 
+            marginBottom: '4px',
+            color: '#4ade80',
             display: 'flex',
             alignItems: 'center',
             gap: '6px'
           }}>
-            ⚠️ {interactionWarnings.some(w => w.severity === 'serious') ? 'Important' : 'Supplement'} Interactions
+            <Info size={16} />
+            Personalized Insight
+          </div>
+          {personalizedMessage}
+        </div>
+      )}
+
+      {/* Interaction Warnings */}
+      {interactionWarnings.length > 0 && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: '8px',
+          padding: '12px',
+          margin: '16px 20px',
+          fontSize: '14px'
+        }}>
+          <div style={{ 
+            fontWeight: '600', 
+            marginBottom: '8px',
+            color: '#f59e0b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <AlertTriangle size={16} />
+            {interactionWarnings.length > 1 ? 'Important' : 'Supplement'} Interactions
           </div>
           {interactionWarnings.slice(0, 2).map((warning, i) => (
             <div key={i} style={{
@@ -662,7 +560,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
         </div>
       )}
 
-      {/* Tab Navigation - ENHANCED WITH NEW COMMUNITY TAB */}
+      {/* Tab Navigation - ENHANCED WITH CLEANLINESS TAB */}
       <div style={{
         display: 'flex',
         background: '#0e0f14',
@@ -673,6 +571,9 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       }}>
         <TabButton tab="analysis">🔬 Analysis</TabButton>
         <TabButton tab="reviews" count={reviewCount}>⭐ Reviews</TabButton>
+        {hasCleanlinessData && (
+          <TabButton tab="cleanliness">🌿 Cleanliness</TabButton>
+        )}
         <TabButton tab="community">👥 Community</TabButton>
         <TabButton tab="price">💰 Pricing</TabButton>
       </div>
@@ -681,8 +582,8 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
       <div style={{padding: '20px'}}>
         {activeTab === 'analysis' && (
           <div>
-            {/* PERSONALIZED ANALYSIS SECTION - PRESERVED */}
-            <PersonalizedSection 
+            {/* PERSONALIZED ANALYSIS SECTION - TEMPORARILY DISABLED FOR DEBUGGING */}
+            {/* <PersonalizedSection 
               supplementData={{
                 name: productName,
                 brand: brandStr,
@@ -691,9 +592,9 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                 form: extracted?.form,
                 price: extracted?.price
               }}
-            />
+            /> */}
 
-            {/* Enhanced Symptom Matching Section - PRESERVED */}
+            {/* Enhanced Symptom Matching Section */}
             {symptomMatches.length > 0 && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -709,74 +610,65 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                 </div>
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px'}}>
                   {symptomMatches.map(match => (
-                    <div key={match.symptomId} style={{
+                    <div key={match.supplement} style={{
                       padding: '12px',
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      background: 'rgba(74, 222, 128, 0.1)',
+                      border: '1px solid rgba(74, 222, 128, 0.3)',
                       borderRadius: '8px'
                     }}>
                       <div style={{
-                        fontWeight: '500',
-                        color: '#10b981',
+                        fontWeight: '600',
+                        color: '#4ade80',
                         marginBottom: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
+                        fontSize: '14px'
                       }}>
-                        <span>{match.symptomName}</span>
-                        <span style={{
-                          fontSize: '10px',
-                          background: 'rgba(16, 185, 129, 0.2)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          textTransform: 'uppercase'
-                        }}>
-                          {match.confidence}
-                        </span>
+                        {match.displayName}
                       </div>
                       <div style={{
                         fontSize: '12px',
-                        color: '#6ee7b7',
-                        opacity: 0.9
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        marginBottom: '8px'
                       }}>
-                        {match.reason}
-                        {match.severity && (
-                          <span style={{ marginLeft: '8px' }}>
-                            • Severity: {match.severity}/5
-                          </span>
-                        )}
+                        Match Score: {match.score}/10 • {match.effectivenessLevel} effectiveness
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        lineHeight: '1.4'
+                      }}>
+                        {match.mechanism}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            
-            {/* ALL ORIGINAL ANALYSIS CONTENT - EXACTLY PRESERVED */}
-            {explanation?.summary && (
-              <div style={{marginBottom: 20}}>
+
+            {/* Overview Section */}
+            {explanation?.overview && (
+              <div style={{marginBottom:20}}>
                 <div style={{
                   fontWeight: '600', 
                   color: '#f4f5f7', 
-                  marginBottom: '8px',
+                  marginBottom: '12px',
                   fontSize: '16px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  📋 Summary
+                  📋 Overview
                 </div>
-                <p style={{
-                  margin: 0, 
-                  color: '#e2e8f0', 
+                <div style={{ 
+                  color: 'rgba(255, 255, 255, 0.9)', 
                   lineHeight: '1.6',
-                  fontSize: '15px'
+                  fontSize: '14px'
                 }}>
-                  {explanation.summary}
-                </p>
+                  {explanation.overview}
+                </div>
               </div>
             )}
 
+            {/* Label vs Guidelines */}
             {!allUnknown && gl.length > 0 && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -819,6 +711,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
               </div>
             )}
 
+            {/* Uses Section */}
             {explanation?.uses && explanation.uses.length > 0 && (
               <div style={{marginBottom: 20}}>
                 <div style={{
@@ -841,33 +734,30 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                       borderRadius: '8px'
                     }}>
                       <div style={{
-                        color: '#e2e8f0',
-                        fontSize: '14px',
-                        lineHeight: '1.5'
+                        color: '#f4f5f7',
+                        fontWeight: '500',
+                        marginBottom: '4px'
                       }}>
-                        {use.claim} {use.evidence_level && (
-                          <span style={{
-                            color: '#a2a6ad',
-                            fontSize: '12px'
-                          }}>
-                            ({use.evidence_level})
-                          </span>
-                        )}
+                        {use.claim}
                       </div>
+                      {use.evidence_level && use.evidence_level !== "unknown" && (
+                        <div style={{
+                          color: '#a2a6ad',
+                          fontSize: '12px',
+                          textTransform: 'capitalize'
+                        }}>
+                          Evidence Level: {use.evidence_level}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {(improvedProductUrl || amazonUrl) && (
-              <div style={{
-                marginTop: 20,
-                padding: '16px',
-                background: 'rgba(255, 255, 255, 0.02)',
-                borderRadius: '12px',
-                border: '1px solid #23252c'
-              }}>
+            {/* How to Take */}
+            {explanation?.how_to_take?.length > 0 && (
+              <div style={{marginBottom:20}}>
                 <div style={{
                   fontWeight: '600', 
                   color: '#f4f5f7', 
@@ -877,7 +767,360 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                   alignItems: 'center',
                   gap: '8px'
                 }}>
-                  🛒 Where to buy
+                  ⏰ How to Take
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.how_to_take.map((h: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid #23252c',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        color: '#f4f5f7',
+                        fontWeight: '500',
+                        marginBottom: '4px'
+                      }}>
+                        {h.ingredient}
+                      </div>
+                      <div style={{
+                        color: '#a2a6ad',
+                        fontSize: '14px'
+                      }}>
+                        {h.timing || ""} {h.with_food ? `(${h.with_food})` : ""} {h.notes ? `— ${h.notes}` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Take If Section */}
+            {explanation?.take_if?.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🩺 Take If
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.take_if.map((t: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid #23252c',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        color: '#f4f5f7',
+                        fontWeight: '500',
+                        marginBottom: '4px'
+                      }}>
+                        {t.scenario}
+                      </div>
+                      <div style={{
+                        color: '#a2a6ad',
+                        fontSize: '14px'
+                      }}>
+                        {t.rationale}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* May Improve Section */}
+            {explanation?.may_improve?.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  ✨ May Help Improve
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.may_improve.map((m: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid #23252c',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        color: '#f4f5f7',
+                        fontWeight: '500',
+                        marginBottom: '4px'
+                      }}>
+                        {m.area}
+                      </div>
+                      <div style={{
+                        color: '#a2a6ad',
+                        fontSize: '14px'
+                      }}>
+                        {m.evidence_level && m.evidence_level !== "unknown" && (
+                          <span style={{ textTransform: 'capitalize' }}>
+                            {m.evidence_level} evidence
+                          </span>
+                        )}
+                        {m.typical_timeframe && (
+                          <span>
+                            {m.evidence_level && m.evidence_level !== "unknown" ? ' • ' : ''}
+                            {m.typical_timeframe}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quality Badges */}
+            {badges.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🏷️ Quality Badges
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '8px' 
+                }}>
+                  {badges.map((badge, i) => (
+                    <span key={i} style={{
+                      background: 'rgba(74, 222, 128, 0.1)',
+                      border: '1px solid rgba(74, 222, 128, 0.3)',
+                      color: '#4ade80',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}>
+                      {badge}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trusted Certification Marks */}
+            {marks.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🛡️ Trusted Certifications
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '8px' 
+                }}>
+                  {marks.map((mark, i) => {
+                    const link = getTrustedMarkLink(mark);
+                    const markElement = (
+                      <span style={{
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#3b82f6',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        cursor: link ? 'pointer' : 'default'
+                      }}>
+                        {mark} {link && '↗'}
+                      </span>
+                    );
+                    
+                    return link ? (
+                      <a key={i} href={link} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}}>
+                        {markElement}
+                      </a>
+                    ) : (
+                      <span key={i}>
+                        {markElement}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Form Notes */}
+            {formNotes.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  💊 Form Notes
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
+                  {formNotes.map((note, i) => (
+                    <div key={i} style={{
+                      padding: '10px',
+                      background: 'rgba(245, 158, 11, 0.1)',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '6px',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px'
+                    }}>
+                      • {note}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Warnings and Upper Limits */}
+            {explanation?.upper_limits_and_warnings?.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  ⚠️ Warnings & Upper Limits
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.upper_limits_and_warnings.map((warning: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '8px',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px'
+                    }}>
+                      • {typeof warning === 'string' ? warning : warning.note}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Interactions and Contraindications */}
+            {explanation?.interactions_and_contraindications?.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🚫 Interactions & Contraindications
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  {explanation.interactions_and_contraindications.map((interaction: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '12px',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '8px'
+                    }}>
+                      <div style={{
+                        color: '#f87171',
+                        fontWeight: '500',
+                        marginBottom: '4px'
+                      }}>
+                        {interaction.item}
+                      </div>
+                      <div style={{
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '14px'
+                      }}>
+                        {interaction.note}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quality Considerations */}
+            {explanation?.quality_considerations?.length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🔍 Quality Considerations
+                </div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
+                  {explanation.quality_considerations.map((consideration: any, i: number) => (
+                    <div key={i} style={{
+                      padding: '10px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid #23252c',
+                      borderRadius: '6px',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px'
+                    }}>
+                      • {typeof consideration === 'string' ? consideration : consideration.note}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Purchase Links */}
+            {(improvedProductUrl || manufacturerUrl) && (
+              <div style={{marginBottom:20}}>
+                <div style={{
+                  fontWeight: '600', 
+                  color: '#f4f5f7', 
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  🛒 Where to Buy
                 </div>
                 <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap'}}>
                   {improvedProductUrl && (
@@ -886,28 +1129,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                       target="_blank" 
                       rel="noopener noreferrer"
                       style={{
-                        padding: '8px 16px',
-                        background: 'linear-gradient(135deg, #4ade80, #22c55e)',
-                        color: 'white',
-                        textDecoration: 'none',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      Official Website ↗
-                    </a>
-                  )}
-                  {amazonUrl && (
-                    <a 
-                      href={amazonUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{
-                        padding: '8px 16px',
+                        padding: '10px 16px',
                         background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                         color: 'white',
                         textDecoration: 'none',
@@ -919,35 +1141,86 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                         gap: '6px'
                       }}
                     >
-                      Amazon ↗
+                      View Product ↗
+                    </a>
+                  )}
+                  {manufacturerUrl && manufacturerUrl !== improvedProductUrl && (
+                    <a 
+                      href={manufacturerUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: '10px 16px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#3b82f6',
+                        textDecoration: 'none',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      Manufacturer ↗
                     </a>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Disclaimer */}
+            {explanation?.disclaimer && (
+              <div style={{
+                fontSize: '12px', 
+                color: 'var(--muted)', 
+                marginTop: '24px',
+                padding: '12px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid #23252c',
+                borderRadius: '8px',
+                lineHeight: '1.4'
+              }}>
+                <strong>Disclaimer:</strong> {explanation.disclaimer}
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'reviews' && (
-          <ReviewsTab 
+          <ReviewsTab
             productName={productName}
             brandName={brandStr}
+            scannedIngredients={extracted?.ingredients}
+            productCategory={explanation?.category || 'supplement'}
             onReviewCountChange={setReviewCount}
           />
         )}
 
-        {/* NEW COMMUNITY TAB - Enhanced Review System Integration */}
+        {/* NEW: Cleanliness Tab */}
+        {activeTab === 'cleanliness' && (
+          <CleanlinessTab
+            cleanlinessScore={extracted?.cleanlinessScore}
+            ingredientAnalysis={extracted?.ingredientAnalysis}
+            loading={false}
+          />
+        )}
+
+        {/* Community Tab */}
         {activeTab === 'community' && (
           <div>
-            {/* Product Insights Display */}
-            <ProductInsightsDisplay
-              productName={productName}
-              brandName={brandStr}
-              barcode={barcode || undefined}
-            />
+            {/* Product Insights Display - Safe */}
+            {ProductInsightsDisplay && (
+              <ProductInsightsDisplay
+                productName={productName}
+                brandName={brandStr}
+                barcode={barcode || undefined}
+              />
+            )}
 
-            {/* Post-Scan Review Prompt */}
-            {showReviewPrompt && (
+            {/* Post-Scan Review Prompt - Safe */}
+            {showReviewPrompt && !reviewSubmitted && PostScanReviewPrompt && (
               <div style={{ marginTop: '24px' }}>
                 <PostScanReviewPrompt
                   productName={productName}
@@ -957,6 +1230,7 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
                     setReviewSubmitted(true);
                     setShowReviewPrompt(false);
                   }}
+                  onDismiss={() => setShowReviewPrompt(false)}
                 />
               </div>
             )}
@@ -1006,7 +1280,19 @@ export default function ResultCard({ explanation, extracted, barcode, confidence
           </div>
         )}
 
-        {activeTab === 'price' && <PriceWidget />}
+        {/* Price Tab */}
+        {activeTab === 'price' && (
+          <div>
+            <PriceWidget 
+              productName={productName}
+              brandName={brandStr}
+              firstIngredient={retailFirstIngredient}
+              amount={retailAmount}
+              unit={retailUnit}
+              productUrl={improvedProductUrl}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
