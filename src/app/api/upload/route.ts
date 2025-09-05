@@ -1,4 +1,4 @@
-﻿// src/app/api/upload/route.ts - COMPLETE FILE
+﻿// src/app/api/upload/route.ts - COMPLETE FIXED FILE
 export const runtime = "nodejs";
 
 import OpenAI from "openai";
@@ -44,14 +44,14 @@ export async function POST(req: Request) {
     const buf = Buffer.from(await file.arrayBuffer());
     const dataUrl = `data:${file.type};base64,${buf.toString("base64")}`;
 
-    // Enhanced OCR with better ingredient detection
+    // Enhanced OCR with specific focus on ingredient sections
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
       messages: [
         { 
           role: "system", 
-          content: "You are a precise OCR extractor for supplement labels. Focus on extracting ingredient lists, supplement facts, and product information accurately." 
+          content: "You are an expert OCR system for supplement labels. Extract ALL text accurately, paying special attention to ingredient lists, supplement facts panels, and complete ingredient sections including 'Other ingredients', 'Non-medicinal ingredients', and 'Inactive ingredients'." 
         },
         {
           role: "user",
@@ -59,11 +59,12 @@ export async function POST(req: Request) {
             {
               type: "text",
               text:
-                'Extract text and return STRICT JSON: ' +
+                'Extract ALL text from this supplement label and return STRICT JSON: ' +
                 '{ "raw_text": string, "lines": string[], "npn": string|null, "brand_guess": string|null, "product_guess": string|null }. ' +
                 "If you see NPN or DIN-HM followed by 8 digits, set npn. " +
-                "Lines should be short and organized top-to-bottom. " +
-                "Pay special attention to ingredient lists and supplement facts panels. " +
+                "Lines should be organized top-to-bottom and preserve ingredient section headers. " +
+                "CRITICAL: Include complete ingredient lists including both active and inactive ingredients. " +
+                "Look for sections like 'Other ingredients:', 'Non-medicinal ingredients:', 'Inactive ingredients:' and include everything in those sections. " +
                 "Return only valid JSON, no additional text.",
             },
             { type: "image_url", image_url: { url: dataUrl } } as any,
@@ -88,22 +89,33 @@ export async function POST(req: Request) {
       ? ocr.lines 
       : String(rawText).split(/\r?\n/).filter(line => line.trim().length > 0);
 
-    // Extract ingredients using existing system
-    const ingredients = extractIngredients(lines, ocr.brand_guess ?? null);
+    console.log('=== UPLOAD ROUTE DEBUG ===');
+    console.log('Raw OCR text length:', rawText.length);
+    console.log('Number of lines:', lines.length);
+    console.log('First 500 chars of OCR:', rawText.substring(0, 500));
+
+    // Extract active ingredients using existing system (for supplement facts)
+    const activeIngredients = extractIngredients(lines, ocr.brand_guess ?? null);
+    console.log('Active ingredients found:', activeIngredients.map(i => i.name));
     
-    // Detect badges and certifications using enhanced system
+    // Detect badges and certifications
     const badges = detectBadges(lines);
     const trustedMarks = detectTrustedMarksFromText(rawText);
-    
-    // NEW: Analyze ingredient cleanliness
-    const cleanlinessAnalysis = analyzeIngredientCleanliness(
-      rawText, 
-      ingredients.map(ing => ing.name)
-    );
-
-    // Enhanced badge detection using new system
     const enhancedBadges = detectBadgesFromText(rawText);
     const allBadges = Array.from(new Set([...badges, ...enhancedBadges]));
+
+    // FIXED: Run cleanliness analysis on RAW OCR TEXT, not just active ingredients
+    // This will use the enhanced extraction to find ALL ingredients
+    console.log('Running cleanliness analysis on raw OCR text...');
+    const cleanlinessAnalysis = analyzeIngredientCleanliness(
+      rawText,
+      undefined  // Let the enhanced system extract ALL ingredients from OCR
+    );
+
+    console.log('Cleanliness analysis results:');
+    console.log('- Ingredients found:', cleanlinessAnalysis.analysis.length);
+    console.log('- Ingredient names:', cleanlinessAnalysis.analysis.map(a => a.name));
+    console.log('- Overall score:', cleanlinessAnalysis.cleanlinessScore.overall);
 
     // Prepare response data
     const responseData = {
@@ -123,14 +135,16 @@ export async function POST(req: Request) {
         npn: ocr.npn ?? null,
         brandGuess: ocr.brand_guess ?? null,
         productGuess: ocr.product_guess ?? null,
-        ingredients,
+        ingredients: activeIngredients, // Keep original for supplement facts
         badges: allBadges,
         marks: trustedMarks,
-        // NEW: Cleanliness analysis
+        // ENHANCED: Now includes ALL ingredients found by enhanced extraction
         cleanlinessScore: cleanlinessAnalysis.cleanlinessScore,
         ingredientAnalysis: cleanlinessAnalysis.analysis
       }
     };
+
+    console.log('Sending response with', cleanlinessAnalysis.analysis.length, 'ingredients analyzed');
 
     return new Response(JSON.stringify(responseData), { 
       status: 200, 

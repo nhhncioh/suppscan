@@ -1,6 +1,7 @@
-// src/components/CleanlinessTab.tsx - Fixed Version
-import React from 'react';
+// src/components/CleanlinessTab.tsx - Properly Sized Version
+import React, { useState } from 'react';
 import { CleanlinessScore, IngredientAnalysis } from '@/lib/ingredientCleanliness';
+import { AlertTriangle, CheckCircle, Info, Star, ChevronDown, ChevronUp, Heart, Shield, Eye } from 'lucide-react';
 
 interface CleanlinessTabProps {
   cleanlinessScore?: CleanlinessScore;
@@ -13,51 +14,65 @@ const CleanlinessTab: React.FC<CleanlinessTabProps> = ({
   ingredientAnalysis, 
   loading 
 }) => {
+  const [expandedIngredient, setExpandedIngredient] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'overview' | 'ingredients' | 'recommendations'>('overview');
+
   if (loading) {
     return (
-      <div className="text-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600">Analyzing ingredient cleanliness...</p>
+      <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af' }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          border: '2px solid #374151',
+          borderTop: '2px solid #3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 12px'
+        }}></div>
+        <p>Analyzing ingredient quality...</p>
       </div>
     );
   }
 
   if (!cleanlinessScore || !ingredientAnalysis) {
     return (
-      <div className="text-center p-8">
-        <p className="text-gray-500 mb-4">No cleanliness data available</p>
-        <p className="text-sm text-gray-400">
-          Cleanliness analysis requires clear ingredient list detection
-        </p>
+      <div style={{ textAlign: 'center', padding: '24px' }}>
+        <div style={{
+          background: 'rgba(75, 85, 99, 0.1)',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '20px',
+          color: '#9ca3af'
+        }}>
+          <p style={{ marginBottom: '8px', fontSize: '15px' }}>No ingredient analysis available</p>
+          <p style={{ fontSize: '13px', opacity: 0.7 }}>
+            Try scanning the ingredient panel more clearly for detailed analysis.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const categoryEmojis = {
-    excellent: '🌟',
-    good: '✅',
-    fair: '⚠️',
-    poor: '❌'
+  // Helper functions
+  const getScoreEmoji = (score: number) => {
+    if (score >= 8) return '🌟';
+    if (score >= 7) return '✅';
+    if (score >= 5) return '⚠️';
+    return '❌';
   };
 
-  const categoryColors = {
-    excellent: 'bg-green-100 text-green-800 border-green-200',
-    good: 'bg-blue-100 text-blue-800 border-blue-200',
-    fair: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    poor: 'bg-red-100 text-red-800 border-red-200'
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return '#10b981'; // green
+    if (score >= 7) return '#3b82f6'; // blue
+    if (score >= 5) return '#f59e0b'; // yellow
+    return '#ef4444'; // red
   };
 
-  const getIngredientCategoryColor = (category: string) => {
-    const colorMap: Record<string, string> = {
-      'active_ingredient': 'bg-green-50 border-green-200 text-green-800',
-      'beneficial_excipient': 'bg-blue-50 border-blue-200 text-blue-800',
-      'neutral_excipient': 'bg-gray-50 border-gray-200 text-gray-700',
-      'questionable_filler': 'bg-yellow-50 border-yellow-200 text-yellow-800',
-      'artificial_additive': 'bg-red-50 border-red-200 text-red-800',
-      'allergen': 'bg-orange-50 border-orange-200 text-orange-800',
-      'preservative': 'bg-purple-50 border-purple-200 text-purple-800'
-    };
-    return colorMap[category] || 'bg-gray-50 border-gray-200 text-gray-700';
+  const getScoreDescription = (score: number) => {
+    if (score >= 8) return "Excellent quality with premium ingredients";
+    if (score >= 7) return "Good quality with mostly clean ingredients";
+    if (score >= 5) return "Fair quality with some areas for improvement";
+    return "Below average quality with concerning ingredients";
   };
 
   const getCategoryDisplayName = (category: string) => {
@@ -73,405 +88,492 @@ const CleanlinessTab: React.FC<CleanlinessTabProps> = ({
     return nameMap[category] || category;
   };
 
-  const getCategoryIcon = (category: string) => {
-    const iconMap: Record<string, string> = {
-      'active_ingredient': '🌿',
-      'beneficial_excipient': '💊',
-      'neutral_excipient': '⚪',
-      'questionable_filler': '⚠️',
-      'artificial_additive': '🔴',
-      'allergen': '⚠️',
-      'preservative': '🧪'
-    };
-    return iconMap[category] || '❓';
-  };
-
-  // Group ingredients by category for better organization
-  const ingredientsByCategory = ingredientAnalysis.reduce((acc, ingredient) => {
-    if (!acc[ingredient.category]) {
-      acc[ingredient.category] = [];
-    }
-    acc[ingredient.category].push(ingredient);
-    return acc;
-  }, {} as Record<string, IngredientAnalysis[]>);
-
-  // Calculate category statistics
-  const categoryStats = Object.entries(ingredientsByCategory).map(([category, ingredients]) => ({
-    category,
-    count: ingredients.length,
-    displayName: getCategoryDisplayName(category),
-    icon: getCategoryIcon(category),
-    color: getIngredientCategoryColor(category)
-  }));
+  // Calculate stats
+  const beneficialIngredients = ingredientAnalysis.filter(ing => ing.cleanlinessImpact > 0);
+  const neutralIngredients = ingredientAnalysis.filter(ing => ing.cleanlinessImpact === 0);
+  const concerningIngredients = ingredientAnalysis.filter(ing => ing.cleanlinessImpact < 0);
 
   return (
-    <div className="space-y-6 p-4">
-      {/* Enhanced Overall Score Card */}
-      <div className={`p-6 rounded-lg border-2 ${categoryColors[cleanlinessScore.category]}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-4xl">{categoryEmojis[cleanlinessScore.category]}</span>
+    <div style={{ padding: '12px', color: '#ffffff' }}>
+      {/* Much Smaller Score Header */}
+      <div style={{
+        background: 'rgba(55, 65, 81, 0.3)',
+        border: `2px solid ${getScoreColor(cleanlinessScore.overall)}`,
+        borderRadius: '8px',
+        padding: '12px',
+        marginBottom: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '24px' }}>{getScoreEmoji(cleanlinessScore.overall)}</span>
             <div>
-              <h3 className="font-bold text-2xl">
-                Cleanliness Score: {cleanlinessScore.overall}/10
-              </h3>
-              <p className="text-lg opacity-90 capitalize">
-                {cleanlinessScore.category} ingredient quality
+              <h1 style={{ 
+                fontSize: '16px', 
+                fontWeight: 'bold', 
+                margin: '0 0 3px 0',
+                color: getScoreColor(cleanlinessScore.overall)
+              }}>
+                Quality Score
+              </h1>
+              <p style={{ 
+                fontSize: '12px', 
+                margin: '0 0 2px 0', 
+                color: '#d1d5db'
+              }}>
+                {getScoreDescription(cleanlinessScore.overall)}
               </p>
-              <p className="text-sm opacity-75 mt-1">
-                Based on analysis of {ingredientAnalysis.length} ingredient{ingredientAnalysis.length !== 1 ? 's' : ''}
+              <p style={{ 
+                fontSize: '10px', 
+                margin: '0', 
+                color: '#9ca3af' 
+              }}>
+                Analysis of {ingredientAnalysis.length} ingredient{ingredientAnalysis.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold">
-              {cleanlinessScore.overall}/10
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ 
+              fontSize: '20px', 
+              fontWeight: 'bold', 
+              color: getScoreColor(cleanlinessScore.overall)
+            }}>
+              {cleanlinessScore.overall}
             </div>
-            <div className="text-sm opacity-75 capitalize">
-              {cleanlinessScore.category}
-            </div>
+            <div style={{ fontSize: '9px', color: '#9ca3af' }}>out of 10</div>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Summary Stats Grid */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-          <div className="text-3xl font-bold text-green-600 mb-1">
-            {cleanlinessScore.positives.length}
-          </div>
-          <div className="text-sm text-green-700 font-medium">Clean Ingredients</div>
-          <div className="text-xs text-green-600 mt-1">
-            {ingredientAnalysis.filter(ing => ing.cleanlinessImpact > 0).length} beneficial
-          </div>
-        </div>
-        <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <div className="text-3xl font-bold text-yellow-600 mb-1">
-            {cleanlinessScore.flags.length}
-          </div>
-          <div className="text-sm text-yellow-700 font-medium">Concerns Found</div>
-          <div className="text-xs text-yellow-600 mt-1">
-            {ingredientAnalysis.filter(ing => ing.cleanlinessImpact < -1).length} problematic
-          </div>
-        </div>
-        <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-3xl font-bold text-blue-600 mb-1">
-            {ingredientAnalysis.length}
-          </div>
-          <div className="text-sm text-blue-700 font-medium">Total Analyzed</div>
-          <div className="text-xs text-blue-600 mt-1">
-            {Object.keys(ingredientsByCategory).length} categories
-          </div>
-        </div>
-      </div>
-
-      {/* Category Overview */}
-      <div className="bg-gray-50 rounded-lg p-4 border">
-        <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-          📊 Ingredient Categories
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {categoryStats.map(({ category, count, displayName, icon, color }) => (
-            <div key={category} className={`p-3 rounded-lg border ${color} text-center`}>
-              <div className="text-lg mb-1">{icon}</div>
-              <div className="font-medium text-sm">{displayName}</div>
-              <div className="text-lg font-bold">{count}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Enhanced Positive Ingredients */}
-      {cleanlinessScore.positives.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
-            ✅ Clean & Beneficial Ingredients
-          </h4>
-          <div className="space-y-3">
-            {cleanlinessScore.positives.map((positive, index) => {
-              const ingredient = ingredientAnalysis.find(ing => positive.includes(ing.name));
-              return (
-                <div key={index} className="flex items-start gap-3 bg-white p-3 rounded-lg border border-green-100">
-                  <span className="text-green-600 mt-0.5 text-lg">🌿</span>
-                  <div className="flex-1">
-                    <div className="text-green-800 font-medium">{positive}</div>
-                    {ingredient && (
-                      <div className="text-green-700 text-sm mt-1">
-                        Impact Score: +{ingredient.cleanlinessImpact}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Enhanced Ingredient Concerns with Specific Details */}
-      {cleanlinessScore.flags.length > 0 ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
-            ⚠️ Specific Ingredient Concerns Found
-          </h4>
-          <div className="space-y-3">
-            {cleanlinessScore.flags.map((flag, index) => {
-              const ingredient = ingredientAnalysis.find(ing => flag.includes(ing.name));
-              return (
-                <div key={index} className="flex items-start gap-3 bg-white p-4 rounded-lg border border-red-100">
-                  <span className="text-red-600 mt-0.5 text-xl">
-                    {ingredient?.category === 'artificial_additive' ? '🚫' : 
-                     ingredient?.category === 'questionable_filler' ? '⚠️' : 
-                     ingredient?.category === 'allergen' ? '🤧' : '⭕'}
-                  </span>
-                  <div className="flex-1">
-                    <div className="font-semibold text-red-800 mb-1">
-                      {ingredient?.name || flag.split(':')[0]} - {getCategoryDisplayName(ingredient?.category || 'unknown')}
-                    </div>
-                    <div className="text-red-700 text-sm leading-relaxed mb-2">
-                      <strong>Why it&apos;s concerning:</strong> {ingredient?.reasoning || flag.split(': ')[1]}
-                    </div>
-                    {ingredient?.alternatives && ingredient.alternatives.length > 0 && (
-                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
-                        <span className="font-medium text-green-800">🌿 Better alternatives:</span>
-                        <span className="text-green-700 ml-1">{ingredient.alternatives.join(', ')}</span>
-                      </div>
-                    )}
-                    <div className="text-xs text-red-600 mt-2">
-                      <strong>Impact Score:</strong> {ingredient?.cleanlinessImpact || 'Unknown'}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          {/* Additional Context for Concerns */}
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              <strong>💡 What this means:</strong> These ingredients may be unnecessary additives, potential allergens, 
-              or have quality concerns. Consider looking for alternatives or consulting with a healthcare provider 
-              if you have sensitivities.
-            </p>
-          </div>
-        </div>
-      ) : (
-        /* Show Detected Ingredients Even When No Concerns */
-        cleanlinessScore.flags.length === 0 && ingredientAnalysis.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
-              ✅ No Major Concerns Detected
-            </h4>
-            <p className="text-green-700 text-sm mb-3">
-              Great news! We didn&apos;t identify any problematic artificial additives, questionable fillers, 
-              or concerning preservatives in this supplement&apos;s ingredient list.
-            </p>
-            
-            {/* Show what was actually detected */}
-            <div className="bg-white border border-green-100 rounded p-3">
-              <h5 className="font-medium text-green-800 mb-2">Ingredients Analyzed:</h5>
-              <div className="space-y-2">
-                {ingredientAnalysis.map((ingredient, index) => (
-                  <div key={index} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{getCategoryIcon(ingredient.category)}</span>
-                      <span className="font-medium">{ingredient.name}</span>
-                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-                        {getCategoryDisplayName(ingredient.category)}
-                      </span>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      ingredient.cleanlinessImpact > 0 
-                        ? 'bg-green-100 text-green-800' 
-                        : ingredient.cleanlinessImpact < 0
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {ingredient.cleanlinessImpact > 0 ? '+' : ''}{ingredient.cleanlinessImpact} impact
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* What We Specifically Look For */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-          🔍 What We Analyze
-        </h4>
-        <div className="grid md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <h5 className="font-medium text-blue-800 mb-2">✅ Clean Ingredients We Look For:</h5>
-            <ul className="text-blue-700 space-y-1">
-              <li>• Plant-based capsules (vegetable cellulose)</li>
-              <li>• Natural fillers (rice flour, cellulose)</li>
-              <li>• Chelated minerals (glycinate, picolinate)</li>
-              <li>• Active vitamin forms (methylcobalamin, folate)</li>
-              <li>• Organic certifications</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-medium text-red-800 mb-2">⚠️ Concerning Ingredients We Flag:</h5>
-            <ul className="text-red-700 space-y-1">
-              <li>• Artificial colors (Red #40, Blue #1, Yellow #6)</li>
-              <li>• Questionable fillers (maltodextrin, talc)</li>
-              <li>• Synthetic forms (cyanocobalamin, folic acid)</li>
-              <li>• Controversial additives (titanium dioxide, carrageenan)</li>
-              <li>• Poorly absorbed minerals (oxide forms)</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Ingredient Analysis by Category */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-lg">Complete Ingredient Analysis</h4>
-        
-        {ingredientAnalysis.length === 0 ? (
-          <div className="text-center p-6 bg-gray-50 rounded-lg border">
-            <p className="text-gray-600 mb-2">No ingredients detected for analysis</p>
-            <p className="text-sm text-gray-500">
-              This might happen if the ingredient list wasn&apos;t clearly visible in the scan. 
-              Try scanning the ingredient panel more clearly.
-            </p>
-          </div>
-        ) : (
-          Object.entries(ingredientsByCategory)
-            .sort(([,a], [,b]) => {
-              // Sort by impact: positive first, then neutral, then negative
-              const avgImpactA = a.reduce((sum, ing) => sum + ing.cleanlinessImpact, 0) / a.length;
-              const avgImpactB = b.reduce((sum, ing) => sum + ing.cleanlinessImpact, 0) / b.length;
-              return avgImpactB - avgImpactA;
-            })
-            .map(([category, ingredients]) => (
-            <div key={category} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">{getCategoryIcon(category)}</span>
-                <h5 className="font-medium text-lg text-gray-700">
-                  {getCategoryDisplayName(category)} ({ingredients.length})
-                </h5>
-                <span className="text-sm px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                  Avg Impact: {(ingredients.reduce((sum, ing) => sum + ing.cleanlinessImpact, 0) / ingredients.length).toFixed(1)}
+      {/* Compact Stats Grid */}
+      <div style={{
+        background: 'rgba(55, 65, 81, 0.2)',
+        border: '1px solid #374151',
+        borderRadius: '8px',
+        padding: '12px',
+        marginBottom: '12px'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '12px',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          {/* Beneficial */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            flex: 1
+          }}>
+            <Heart style={{ color: '#10b981', width: '14px', height: '14px', flexShrink: 0 }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: '#10b981', fontWeight: '600', fontSize: '12px' }}>Beneficial</span>
+                <span style={{ 
+                  color: '#ffffff', 
+                  fontWeight: 'bold', 
+                  fontSize: '16px'
+                }}>
+                  {beneficialIngredients.length}
                 </span>
               </div>
-              
-              <div className="grid gap-3">
-                {ingredients.map((ingredient, index) => (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border-2 ${getIngredientCategoryColor(ingredient.category)}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h6 className="font-semibold text-lg">{ingredient.name}</h6>
-                          <span className="text-xs px-2 py-1 rounded bg-white bg-opacity-50">
-                            {getCategoryDisplayName(ingredient.category)}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <p className="text-sm opacity-90 leading-relaxed">
-                            <strong>Analysis:</strong> {ingredient.reasoning}
-                          </p>
-                          
-                          {ingredient.cleanlinessImpact < 0 && (
-                            <div className="bg-red-100 border border-red-200 rounded p-2 text-sm">
-                              <span className="font-medium text-red-800">⚠️ Concern:</span>
-                              <span className="text-red-700 ml-1">
-                                This ingredient has a negative impact on supplement cleanliness
-                              </span>
-                            </div>
-                          )}
-                          
-                          {ingredient.cleanlinessImpact > 0 && (
-                            <div className="bg-green-100 border border-green-200 rounded p-2 text-sm">
-                              <span className="font-medium text-green-800">✅ Benefit:</span>
-                              <span className="text-green-700 ml-1">
-                                This ingredient contributes positively to supplement quality
-                              </span>
-                            </div>
-                          )}
-                          
-                          {ingredient.alternatives && ingredient.alternatives.length > 0 && (
-                            <div className="bg-blue-50 border border-blue-200 rounded p-2 text-sm">
-                              <span className="font-medium text-blue-800">💡 Better alternatives: </span>
-                              <span className="text-blue-700">
-                                {ingredient.alternatives.join(', ')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="text-right ml-4">
-                        <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-bold ${
-                          ingredient.cleanlinessImpact > 0 
-                            ? 'bg-green-100 text-green-800 border border-green-300' 
-                            : ingredient.cleanlinessImpact < 0
-                            ? 'bg-red-100 text-red-800 border border-red-300'
-                            : 'bg-gray-100 text-gray-800 border border-gray-300'
-                        }`}>
-                          {ingredient.cleanlinessImpact > 0 ? '+' : ''}{ingredient.cleanlinessImpact}
-                        </span>
-                        <div className="text-xs text-gray-600 mt-1 text-center">
-                          Impact Score
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ fontSize: '10px', color: '#9ca3af', lineHeight: '1.2' }}>
+                Positive ingredients
               </div>
             </div>
-          ))
-        )}
+          </div>
+
+          {/* Clean */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            flex: 1
+          }}>
+            <Shield style={{ color: '#6b7280', width: '14px', height: '14px', flexShrink: 0 }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: '#6b7280', fontWeight: '600', fontSize: '12px' }}>Clean</span>
+                <span style={{ 
+                  color: '#ffffff', 
+                  fontWeight: 'bold', 
+                  fontSize: '16px'
+                }}>
+                  {neutralIngredients.length}
+                </span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', lineHeight: '1.2' }}>
+                Safe ingredients
+              </div>
+            </div>
+          </div>
+
+          {/* Watch */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px',
+            flex: 1
+          }}>
+            <Eye style={{ color: '#f59e0b', width: '14px', height: '14px', flexShrink: 0 }} />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: '#f59e0b', fontWeight: '600', fontSize: '12px' }}>Watch</span>
+                <span style={{ 
+                  color: '#ffffff', 
+                  fontWeight: 'bold', 
+                  fontSize: '16px'
+                }}>
+                  {concerningIngredients.length}
+                </span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', lineHeight: '1.2' }}>
+                Need attention
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Enhanced Educational Footer */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-6">
-        <h5 className="font-semibold text-gray-800 mb-4 text-lg">Understanding Your Results</h5>
-        
-        <div className="grid md:grid-cols-2 gap-6 text-sm text-gray-600 mb-4">
-          <div className="space-y-3">
-            <div>
-              <span className="inline-block w-8 h-4 bg-green-100 border border-green-300 rounded mr-2"></span>
-              <strong className="text-green-600">8-10 (Excellent):</strong> Clean formulation with minimal processing, beneficial ingredients, no concerning additives
-            </div>
-            <div>
-              <span className="inline-block w-8 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></span>
-              <strong className="text-blue-600">6-7 (Good):</strong> Generally clean with some minor concerns or neutral excipients
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <span className="inline-block w-8 h-4 bg-yellow-100 border border-yellow-300 rounded mr-2"></span>
-              <strong className="text-yellow-600">4-5 (Fair):</strong> Mix of beneficial and questionable ingredients, some fillers present
-            </div>
-            <div>
-              <span className="inline-block w-8 h-4 bg-red-100 border border-red-300 rounded mr-2"></span>
-              <strong className="text-red-600">1-3 (Poor):</strong> Multiple artificial additives, questionable fillers, or concerning preservatives
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-            <p className="text-sm text-green-800">
-              <strong>💡 Pro Tip:</strong> Look for supplements with plant-based capsules, chelated minerals, 
-              and active vitamin forms. Third-party testing certifications are also good quality indicators.
-            </p>
-          </div>
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-800">
-              <strong>🔬 Our Analysis:</strong> We evaluate over 100 common supplement ingredients based on 
-              bioavailability, processing methods, potential health concerns, and industry best practices.
-            </p>
-          </div>
-        </div>
+      {/* Navigation Tabs - Properly sized */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '8px', 
+        marginBottom: '16px',
+        borderBottom: '1px solid #374151',
+        paddingBottom: '8px'
+      }}>
+        {['overview', 'ingredients', 'recommendations'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveView(tab as any)}
+            style={{
+              padding: '9px 15px',
+              background: activeView === tab ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+              color: activeView === tab ? '#3b82f6' : '#9ca3af',
+              border: activeView === tab ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '500',
+              textTransform: 'capitalize',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {tab === 'ingredients' ? 'Details' : tab === 'recommendations' ? 'Tips' : tab}
+          </button>
+        ))}
       </div>
+
+      {/* Tab Content */}
+      {activeView === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* What This Means */}
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '8px',
+            padding: '14px'
+          }}>
+            <h3 style={{ 
+              fontSize: '15px', 
+              fontWeight: '600', 
+              margin: '0 0 8px 0', 
+              color: '#93c5fd' 
+            }}>
+              What This Means
+            </h3>
+            <p style={{ 
+              margin: '0', 
+              lineHeight: '1.5', 
+              color: '#d1d5db',
+              fontSize: '13px'
+            }}>
+              {cleanlinessScore.overall >= 7.5 
+                ? "This product contains high-quality ingredients with beneficial components. The formulation demonstrates good attention to ingredient selection and quality."
+                : cleanlinessScore.overall >= 6
+                ? "This product contains mostly acceptable ingredients with some beneficial components. There may be a few ingredients to be aware of, but overall it's a reasonable formulation."
+                : "This product has some ingredient quality concerns that may affect its effectiveness or safety. Consider the specific issues noted below."
+              }
+            </p>
+          </div>
+
+          {/* Beneficial Ingredients */}
+          {beneficialIngredients.length > 0 && (
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '8px',
+              padding: '14px'
+            }}>
+              <h4 style={{ 
+                fontSize: '15px', 
+                fontWeight: '600', 
+                margin: '0 0 10px 0', 
+                color: '#6ee7b7',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px'
+              }}>
+                <CheckCircle style={{ width: '16px', height: '16px' }} />
+                Beneficial Ingredients Found
+              </h4>
+              
+              {beneficialIngredients.map((ingredient, index) => (
+                <div key={index} style={{
+                  background: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  borderRadius: '6px',
+                  padding: '10px',
+                  marginBottom: index < beneficialIngredients.length - 1 ? '8px' : '0'
+                }}>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#6ee7b7',
+                    marginBottom: '4px'
+                  }}>
+                    {ingredient.name}
+                  </div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#d1d5db',
+                    marginBottom: '4px',
+                    lineHeight: '1.4'
+                  }}>
+                    {ingredient.reasoning}
+                  </div>
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: '#9ca3af'
+                  }}>
+                    Impact: +{ingredient.cleanlinessImpact} • {getCategoryDisplayName(ingredient.category)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Concerning Ingredients */}
+          {concerningIngredients.length > 0 && (
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '8px',
+              padding: '14px'
+            }}>
+              <h4 style={{ 
+                fontSize: '15px', 
+                fontWeight: '600', 
+                margin: '0 0 10px 0', 
+                color: '#fbbf24',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px'
+              }}>
+                <AlertTriangle style={{ width: '16px', height: '16px' }} />
+                Ingredients to Watch
+              </h4>
+              
+              {concerningIngredients.map((ingredient, index) => (
+                <div key={index} style={{
+                  background: 'rgba(245, 158, 11, 0.05)',
+                  border: '1px solid rgba(245, 158, 11, 0.2)',
+                  borderRadius: '6px',
+                  padding: '10px',
+                  marginBottom: index < concerningIngredients.length - 1 ? '8px' : '0'
+                }}>
+                  <div style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '600', 
+                    color: '#fbbf24',
+                    marginBottom: '4px'
+                  }}>
+                    {ingredient.name}
+                  </div>
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#d1d5db',
+                    marginBottom: '4px',
+                    lineHeight: '1.4'
+                  }}>
+                    {ingredient.reasoning}
+                  </div>
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: '#9ca3af'
+                  }}>
+                    Impact: {ingredient.cleanlinessImpact} • {getCategoryDisplayName(ingredient.category)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeView === 'ingredients' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {ingredientAnalysis
+            .sort((a, b) => b.cleanlinessImpact - a.cleanlinessImpact)
+            .map((ingredient, index) => {
+              const isExpanded = expandedIngredient === ingredient.name;
+              const impactColor = ingredient.cleanlinessImpact > 0 ? '#10b981' : 
+                                ingredient.cleanlinessImpact < 0 ? '#f59e0b' : '#6b7280';
+              
+              return (
+                <div
+                  key={index}
+                  style={{
+                    background: 'rgba(55, 65, 81, 0.2)',
+                    border: '1px solid #374151',
+                    borderRadius: '7px',
+                    padding: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '4px' }}>
+                        <h4 style={{ 
+                          fontSize: '14px', 
+                          fontWeight: '600', 
+                          margin: '0', 
+                          color: '#f9fafb' 
+                        }}>
+                          {ingredient.name}
+                        </h4>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          color: impactColor,
+                          fontWeight: '600'
+                        }}>
+                          {ingredient.cleanlinessImpact > 0 ? '+' : ''}{ingredient.cleanlinessImpact}
+                        </span>
+                      </div>
+                      <p style={{ 
+                        fontSize: '12px', 
+                        margin: '0 0 6px 0', 
+                        color: '#d1d5db',
+                        lineHeight: '1.4'
+                      }}>
+                        {ingredient.reasoning}
+                      </p>
+                      <button
+                        onClick={() => setExpandedIngredient(isExpanded ? null : ingredient.name)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#9ca3af',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          padding: '0'
+                        }}
+                      >
+                        {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                        {isExpanded ? 'Less details' : 'More details'}
+                      </button>
+                      {isExpanded && (
+                        <div style={{ 
+                          marginTop: '6px', 
+                          fontSize: '11px', 
+                          color: '#9ca3af',
+                          paddingTop: '6px',
+                          borderTop: '1px solid #374151'
+                        }}>
+                          <div>Category: {getCategoryDisplayName(ingredient.category)}</div>
+                          <div style={{ marginTop: '2px' }}>
+                            Impact: {ingredient.cleanlinessImpact > 0 ? 'Positive' : ingredient.cleanlinessImpact < 0 ? 'Negative' : 'Neutral'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {activeView === 'recommendations' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Usage Tips */}
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '8px',
+            padding: '14px'
+          }}>
+            <h3 style={{ 
+              fontSize: '15px', 
+              fontWeight: '600', 
+              margin: '0 0 10px 0', 
+              color: '#6ee7b7' 
+            }}>
+              💡 Usage Tips
+            </h3>
+            <ul style={{ 
+              margin: '0', 
+              paddingLeft: '16px', 
+              color: '#d1d5db',
+              fontSize: '13px',
+              lineHeight: '1.5'
+            }}>
+              {concerningIngredients.length > 0 && (
+                <li style={{ marginBottom: '4px' }}>
+                  Take on an empty stomach for better absorption due to potential absorption-limiting ingredients
+                </li>
+              )}
+              <li style={{ marginBottom: '4px' }}>Follow the recommended dosage on the label</li>
+              {beneficialIngredients.length > 0 && (
+                <li style={{ marginBottom: '4px' }}>
+                  Take consistently for best results due to beneficial ingredients present
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Bottom Line */}
+          <div style={{
+            background: 'rgba(55, 65, 81, 0.2)',
+            border: '1px solid #374151',
+            borderRadius: '8px',
+            padding: '14px'
+          }}>
+            <h3 style={{ 
+              fontSize: '15px', 
+              fontWeight: '600', 
+              margin: '0 0 8px 0', 
+              color: '#f9fafb' 
+            }}>
+              Bottom Line
+            </h3>
+            <p style={{ 
+              margin: '0', 
+              lineHeight: '1.5', 
+              color: '#d1d5db',
+              fontSize: '13px'
+            }}>
+              {cleanlinessScore.overall >= 7.5 
+                ? "This is a high-quality product with excellent ingredient selection. You can feel confident about its formulation and safety profile."
+                : cleanlinessScore.overall >= 6
+                ? "This is a solid choice with good ingredient quality. While it may not be perfect, it should provide the intended benefits when used properly."
+                : "This product has some quality concerns that you should consider. You may want to look for alternatives with better ingredient profiles."
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

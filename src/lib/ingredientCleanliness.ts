@@ -1,109 +1,271 @@
-// src/lib/ingredientCleanliness.ts
+// src/lib/ingredientCleanliness.ts - Enhanced Version with Better Extraction
+import { IngredientCategory } from '@/types/suppscan';
 
-export type IngredientCategory = 
-  | 'active_ingredient'
-  | 'beneficial_excipient'
-  | 'neutral_excipient'
-  | 'questionable_filler'
-  | 'artificial_additive'
-  | 'allergen'
-  | 'preservative';
-
-export type CleanlinessScore = {
-  overall: number; // 1-10 scale
+export interface CleanlinessScore {
+  overall: number; // 1-10
   category: 'excellent' | 'good' | 'fair' | 'poor';
   flags: string[];
   positives: string[];
-};
+}
 
-export type IngredientAnalysis = {
+export interface IngredientAnalysis {
   name: string;
   category: IngredientCategory;
-  cleanlinessImpact: number; // -5 to +5
+  cleanlinessImpact: number; // -3 to +3
   reasoning: string;
   alternatives?: string[];
-};
+}
 
-// Comprehensive ingredient database for cleanliness assessment
+// Enhanced ingredient database with more comprehensive entries
 const INGREDIENT_DATABASE: Record<string, {
   category: IngredientCategory;
   impact: number;
   reasoning: string;
   alternatives?: string[];
 }> = {
-  // Active ingredients (positive)
-  'vitamin c': { category: 'active_ingredient', impact: 5, reasoning: 'Essential nutrient with proven benefits' },
-  'vitamin d3': { category: 'active_ingredient', impact: 5, reasoning: 'Bioactive form of vitamin D' },
-  'magnesium glycinate': { category: 'active_ingredient', impact: 4, reasoning: 'Highly bioavailable form of magnesium' },
-  'zinc picolinate': { category: 'active_ingredient', impact: 4, reasoning: 'Well-absorbed form of zinc' },
-  
-  // Beneficial excipients (positive/neutral)
-  'microcrystalline cellulose': { category: 'beneficial_excipient', impact: 1, reasoning: 'Plant-based, inert binding agent' },
-  'vegetable cellulose': { category: 'beneficial_excipient', impact: 2, reasoning: 'Plant-based capsule material' },
-  'rice flour': { category: 'beneficial_excipient', impact: 1, reasoning: 'Natural, gluten-free filler' },
-  'magnesium stearate': { category: 'neutral_excipient', impact: 0, reasoning: 'Common lubricant, generally safe in small amounts' },
-  'silicon dioxide': { category: 'neutral_excipient', impact: 0, reasoning: 'Anti-caking agent, naturally occurring' },
-  'stearic acid': { category: 'neutral_excipient', impact: 0, reasoning: 'Natural fatty acid lubricant' },
-  
-  // Questionable fillers (negative impact)
-  'maltodextrin': { category: 'questionable_filler', impact: -1, reasoning: 'Highly processed carbohydrate, may affect blood sugar', alternatives: ['rice flour', 'tapioca starch'] },
-  'dicalcium phosphate': { category: 'questionable_filler', impact: -1, reasoning: 'Cheap filler, may reduce absorption of other nutrients' },
-  'talc': { category: 'questionable_filler', impact: -2, reasoning: 'Controversial mineral, potential contaminant concerns' },
-  
-  // Artificial additives (more negative impact)
-  'titanium dioxide': { category: 'artificial_additive', impact: -2, reasoning: 'Artificial whitening agent, safety concerns in nanoparticle form' },
-  'fd&c red no. 40': { category: 'artificial_additive', impact: -3, reasoning: 'Artificial food dye, linked to hyperactivity in children' },
-  'fd&c blue no. 1': { category: 'artificial_additive', impact: -3, reasoning: 'Artificial food dye, unnecessary additive' },
-  'fd&c yellow no. 6': { category: 'artificial_additive', impact: -3, reasoning: 'Artificial food dye, potential allergen' },
-  'carrageenan': { category: 'artificial_additive', impact: -2, reasoning: 'Controversial thickener, may cause digestive issues' },
-  'polysorbate 80': { category: 'artificial_additive', impact: -2, reasoning: 'Emulsifier that may affect gut microbiome' },
-  
-  // Preservatives (context-dependent)
-  'sodium benzoate': { category: 'preservative', impact: -1, reasoning: 'Preservative, safe in small amounts but unnecessary in most supplements' },
-  'potassium sorbate': { category: 'preservative', impact: -1, reasoning: 'Preservative, generally safe but indicates processing' },
-  
-  // Common allergens
-  'soy lecithin': { category: 'allergen', impact: -1, reasoning: 'Common allergen, though generally safe for most people', alternatives: ['sunflower lecithin'] },
-  'wheat': { category: 'allergen', impact: -2, reasoning: 'Contains gluten, problematic for sensitive individuals' },
-  'milk': { category: 'allergen', impact: -1, reasoning: 'Common allergen, unnecessary in most supplements' },
-};
-
-// Pattern matching for ingredients not in exact database
-const INGREDIENT_PATTERNS: Array<{
-  pattern: RegExp;
-  category: IngredientCategory;
-  impact: number;
-  reasoning: string;
-}> = [
-  {
-    pattern: /artificial|synthetic|fd&c|lake|dye/i,
-    category: 'artificial_additive',
-    impact: -2,
-    reasoning: 'Contains artificial additives or synthetic colors'
-  },
-  {
-    pattern: /cellulose|plant|vegetable/i,
-    category: 'beneficial_excipient',
-    impact: 1,
-    reasoning: 'Plant-based ingredient'
-  },
-  {
-    pattern: /organic/i,
+  // Active ingredients (positive impact)
+  'ascorbic acid': {
     category: 'active_ingredient',
     impact: 2,
-    reasoning: 'Organic certification indicates cleaner sourcing'
+    reasoning: 'High-quality, bioavailable form of Vitamin C with proven immune support benefits'
   },
-  {
-    pattern: /hydrogenated|partially hydrogenated/i,
-    category: 'artificial_additive',
-    impact: -3,
-    reasoning: 'Hydrogenated oils contain trans fats'
+  'vitamin c': {
+    category: 'active_ingredient',
+    impact: 2,
+    reasoning: 'Essential antioxidant vitamin with immune system support'
   },
-  {
-    pattern: /natural flavor|natural flavoring/i,
+  'cholecalciferol': {
+    category: 'active_ingredient',
+    impact: 2,
+    reasoning: 'Natural, highly bioavailable form of Vitamin D3'
+  },
+  'methylcobalamin': {
+    category: 'active_ingredient',
+    impact: 2,
+    reasoning: 'Active, methylated form of B12 with superior bioavailability'
+  },
+  'folate': {
+    category: 'active_ingredient',
+    impact: 2,
+    reasoning: 'Natural folate is more bioavailable than synthetic folic acid'
+  },
+  'alpha tocopherol': {
+    category: 'active_ingredient',
+    impact: 2,
+    reasoning: 'Natural form of Vitamin E with antioxidant properties'
+  },
+
+  // Beneficial excipients
+  'vegetable cellulose': {
+    category: 'beneficial_excipient',
+    impact: 1,
+    reasoning: 'Plant-based capsule material, clean and vegan-friendly'
+  },
+  'rice flour': {
+    category: 'beneficial_excipient',
+    impact: 1,
+    reasoning: 'Natural, hypoallergenic filler derived from rice'
+  },
+  'sunflower lecithin': {
+    category: 'beneficial_excipient',
+    impact: 1,
+    reasoning: 'Natural emulsifier, better alternative to soy lecithin'
+  },
+  'organic rice concentrate': {
+    category: 'beneficial_excipient',
+    impact: 1,
+    reasoning: 'Organic, natural flow agent alternative to synthetic fillers'
+  },
+  'natural flavor': {
+    category: 'beneficial_excipient',
+    impact: 1,
+    reasoning: 'Natural flavoring without artificial additives'
+  },
+
+  // Neutral excipients (acceptable)
+  'microcrystalline cellulose': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Common, generally safe binding agent derived from plant fiber'
+  },
+  'cellulose': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Plant-derived fiber used as a safe binding agent'
+  },
+  'calcium carbonate': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Natural mineral used as filler, also provides some calcium'
+  },
+  'dicalcium phosphate': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Mineral-based filler that also provides calcium and phosphorus'
+  },
+  'gelatin': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Traditional capsule material, not suitable for vegetarians but generally safe'
+  },
+  'hypromellose': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Vegetarian capsule material, chemically stable and safe'
+  },
+  'hydroxypropyl methylcellulose': {
+    category: 'neutral_excipient',
+    impact: 0,
+    reasoning: 'Vegetarian capsule material, safe alternative to gelatin'
+  },
+
+  // Questionable fillers (mild concern)
+  'magnesium stearate': {
     category: 'questionable_filler',
     impact: -1,
-    reasoning: 'Vague term that may hide various additives'
+    reasoning: 'Common flow agent that may reduce nutrient absorption, though effects are minimal at typical doses',
+    alternatives: ['rice flour', 'sunflower lecithin', 'organic rice concentrate']
+  },
+  'stearic acid': {
+    category: 'questionable_filler',
+    impact: -1,
+    reasoning: 'Saturated fatty acid used as lubricant, may affect absorption'
+  },
+  'silicon dioxide': {
+    category: 'questionable_filler',
+    impact: -1,
+    reasoning: 'Anti-caking agent that may interfere with nutrient absorption at high doses'
+  },
+  'maltodextrin': {
+    category: 'questionable_filler',
+    impact: -1,
+    reasoning: 'Highly processed starch that can spike blood sugar, unnecessary additive'
+  },
+  'soy lecithin': {
+    category: 'questionable_filler',
+    impact: -1,
+    reasoning: 'Often from GMO soybeans, potential allergen, sunflower lecithin is better alternative'
+  },
+
+  // Artificial additives (concerning)
+  'titanium dioxide': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Whitening agent with potential safety concerns, banned in food in EU',
+    alternatives: ['natural colorings', 'no coloring needed']
+  },
+  'artificial flavor': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Synthetic flavoring chemicals, natural flavors are safer alternatives'
+  },
+  'artificial colors': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Synthetic dyes linked to hyperactivity and other health concerns'
+  },
+  'fd&c red no. 40': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Artificial red dye linked to behavioral issues in children'
+  },
+  'fd&c blue no. 1': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Artificial blue dye with potential safety concerns'
+  },
+  'fd&c yellow no. 6': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Artificial yellow dye that may cause allergic reactions'
+  },
+  'polysorbate 80': {
+    category: 'artificial_additive',
+    impact: -2,
+    reasoning: 'Synthetic emulsifier that may disrupt gut microbiome'
+  },
+
+  // Preservatives
+  'sodium benzoate': {
+    category: 'preservative',
+    impact: -1,
+    reasoning: 'Chemical preservative, generally safe but can form benzene when combined with vitamin C'
+  },
+  'potassium sorbate': {
+    category: 'preservative',
+    impact: -1,
+    reasoning: 'Chemical preservative, safer than some alternatives but still synthetic'
+  },
+  'bht': {
+    category: 'preservative',
+    impact: -2,
+    reasoning: 'Synthetic antioxidant preservative with potential health concerns'
+  },
+  'bha': {
+    category: 'preservative',
+    impact: -2,
+    reasoning: 'Synthetic preservative classified as possible carcinogen'
+  },
+
+  // Allergens
+  'soy': {
+    category: 'allergen',
+    impact: -1,
+    reasoning: 'Common allergen, often from GMO sources'
+  },
+  'wheat': {
+    category: 'allergen',
+    impact: -1,
+    reasoning: 'Contains gluten, problematic for those with celiac disease or sensitivity'
+  },
+  'milk': {
+    category: 'allergen',
+    impact: -1,
+    reasoning: 'Dairy allergen, not suitable for lactose intolerant individuals'
+  },
+  'egg': {
+    category: 'allergen',
+    impact: -1,
+    reasoning: 'Common allergen ingredient'
+  }
+};
+
+// Enhanced pattern matching for ingredients not in database
+const INGREDIENT_PATTERNS = [
+  // Artificial colors pattern
+  {
+    pattern: /^(fd&c|d&c)\s+(red|blue|green|yellow)\s+(no\.?\s*)?\d+$/i,
+    category: 'artificial_additive' as IngredientCategory,
+    impact: -2,
+    reasoning: 'Artificial food dye with potential safety concerns'
+  },
+  // Natural colors
+  {
+    pattern: /^(natural|organic)\s+(color|flavour?|flavor)$/i,
+    category: 'beneficial_excipient' as IngredientCategory,
+    impact: 1,
+    reasoning: 'Natural coloring or flavoring agent'
+  },
+  // Vitamins and minerals (active ingredients)
+  {
+    pattern: /^(vitamin|vit\.?)\s+[a-z]\d*$/i,
+    category: 'active_ingredient' as IngredientCategory,
+    impact: 2,
+    reasoning: 'Essential vitamin with health benefits'
+  },
+  // Mineral salts
+  {
+    pattern: /^(calcium|magnesium|zinc|iron|potassium|sodium)\s+(carbonate|oxide|sulfate|chloride|citrate|gluconate|bisglycinate|picolinate)$/i,
+    category: 'neutral_excipient' as IngredientCategory,
+    impact: 0,
+    reasoning: 'Mineral compound used as ingredient or filler'
+  },
+  // Organic compounds
+  {
+    pattern: /^organic\s+/i,
+    category: 'beneficial_excipient' as IngredientCategory,
+    impact: 1,
+    reasoning: 'Organic ingredient without synthetic pesticides or chemicals'
   }
 ];
 
@@ -113,32 +275,55 @@ export class IngredientCleanlinessScanner {
     analysis: IngredientAnalysis[];
     cleanlinessScore: CleanlinessScore;
   } {
-    // Extract ingredients from OCR text if not provided
-    const ingredients = ingredientList || this.extractIngredientsFromOCR(ocrText);
+    console.log('=== INGREDIENT ANALYSIS DEBUG ===');
+    console.log('OCR Text length:', ocrText.length);
+    console.log('Provided ingredient list:', ingredientList);
+    
+    // Extract ingredients from OCR text if not provided, with enhanced extraction
+    const extractedIngredients = ingredientList || this.extractIngredientsFromOCR(ocrText);
+    
+    console.log('Final extracted ingredients:', extractedIngredients);
+    
+    if (extractedIngredients.length === 0) {
+      console.log('No ingredients found - returning default neutral analysis');
+      return {
+        analysis: [{
+          name: 'Unknown ingredients',
+          category: 'neutral_excipient',
+          cleanlinessImpact: 0,
+          reasoning: 'Could not detect ingredient list from image. Try scanning the ingredient panel more clearly.'
+        }],
+        cleanlinessScore: {
+          overall: 5,
+          category: 'fair',
+          flags: ['Could not detect ingredient list'],
+          positives: []
+        }
+      };
+    }
     
     const analysis: IngredientAnalysis[] = [];
     let totalImpact = 0;
     const flags: string[] = [];
     const positives: string[] = [];
     
-    for (const ingredient of ingredients) {
+    for (const ingredient of extractedIngredients) {
       const ingredientAnalysis = this.analyzeIngredient(ingredient);
       analysis.push(ingredientAnalysis);
       totalImpact += ingredientAnalysis.cleanlinessImpact;
       
       if (ingredientAnalysis.cleanlinessImpact < -1) {
         flags.push(`${ingredient}: ${ingredientAnalysis.reasoning}`);
-      } else if (ingredientAnalysis.cleanlinessImpact > 1) {
+      } else if (ingredientAnalysis.cleanlinessImpact > 0) {
         positives.push(`${ingredient}: ${ingredientAnalysis.reasoning}`);
       }
     }
     
-    // IMPROVED SCORING LOGIC
-    // Calculate overall cleanliness score (1-10 scale)
-    const averageImpact = totalImpact / Math.max(ingredients.length, 1);
+    // Enhanced scoring logic
+    const averageImpact = totalImpact / Math.max(extractedIngredients.length, 1);
     
-    // Better baseline scoring that rewards premium ingredients
-    let baseScore = 6; // Start at 6 instead of 5 for neutral formulations
+    // Better baseline scoring
+    let baseScore = 6;
     
     // Count ingredient types for better context
     const beneficial = analysis.filter(ing => ing.cleanlinessImpact > 0).length;
@@ -147,7 +332,7 @@ export class IngredientCleanlinessScanner {
     
     // Adjust base score based on formulation quality
     if (beneficial > 0 && problematic === 0) {
-      baseScore = 7; // Clean formulation with some benefits
+      baseScore = 7; // Clean formulation with benefits
     } else if (beneficial === 0 && problematic === 0 && neutral > 0) {
       baseScore = 6; // Standard neutral formulation
     } else if (problematic > 0) {
@@ -164,6 +349,15 @@ export class IngredientCleanlinessScanner {
     else if (overall >= 4.5) category = 'fair';
     else category = 'poor';
     
+    console.log('Final analysis:', { 
+      ingredientCount: analysis.length, 
+      totalImpact, 
+      averageImpact, 
+      baseScore, 
+      overall, 
+      category 
+    });
+    
     return {
       analysis,
       cleanlinessScore: {
@@ -177,10 +371,12 @@ export class IngredientCleanlinessScanner {
   
   private static analyzeIngredient(ingredient: string): IngredientAnalysis {
     const normalized = ingredient.toLowerCase().trim();
+    console.log('Analyzing ingredient:', ingredient, '-> normalized:', normalized);
     
     // Check exact match first
     const exactMatch = INGREDIENT_DATABASE[normalized];
     if (exactMatch) {
+      console.log('Found exact match for:', normalized);
       return {
         name: ingredient,
         category: exactMatch.category,
@@ -190,9 +386,24 @@ export class IngredientCleanlinessScanner {
       };
     }
     
+    // Check partial matches for compound names
+    for (const [dbIngredient, data] of Object.entries(INGREDIENT_DATABASE)) {
+      if (normalized.includes(dbIngredient) || dbIngredient.includes(normalized)) {
+        console.log('Found partial match:', normalized, 'matches', dbIngredient);
+        return {
+          name: ingredient,
+          category: data.category,
+          cleanlinessImpact: data.impact,
+          reasoning: data.reasoning,
+          alternatives: data.alternatives
+        };
+      }
+    }
+    
     // Check pattern matches
     for (const pattern of INGREDIENT_PATTERNS) {
       if (pattern.pattern.test(normalized)) {
+        console.log('Found pattern match for:', normalized);
         return {
           name: ingredient,
           category: pattern.category,
@@ -201,6 +412,8 @@ export class IngredientCleanlinessScanner {
         };
       }
     }
+    
+    console.log('No match found for:', normalized, '- defaulting to neutral');
     
     // Default for unknown ingredients
     return {
@@ -212,113 +425,177 @@ export class IngredientCleanlinessScanner {
   }
   
   private static extractIngredientsFromOCR(ocrText: string): string[] {
-    // Enhanced extraction - look for ingredient list sections
-    const lines = ocrText.split('\n');
+    console.log('=== ENHANCED INGREDIENT EXTRACTION ===');
+    console.log('Raw OCR text:', ocrText);
+    
+    const lines = ocrText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    console.log('Split into lines:', lines);
+    
     const ingredients: string[] = [];
     let inIngredientsSection = false;
+    let ingredientLines: string[] = [];
     
-    // Log the OCR text for debugging
-    console.log('OCR Text for ingredient extraction:', ocrText);
+    // Enhanced section detection patterns
+    const ingredientSectionPatterns = [
+      /^(other\s+)?ingredients?\s*:?\s*$/i,
+      /^non[- ]?medicinal\s+ingredients?\s*:?\s*$/i,
+      /^inactive\s+ingredients?\s*:?\s*$/i,
+      /^excipients?\s*:?\s*$/i,
+      /^capsule\s+ingredients?\s*:?\s*$/i,
+      /^contains?\s*:?\s*$/i,
+      /^also\s+contains?\s*:?\s*$/i
+    ];
     
-    for (const line of lines) {
+    const endSectionPatterns = [
+      /^(suggested\s+use|directions?|dosage|warning|caution|storage|keep\s+out|expir|best\s+by|lot|mfg|manufactured|distributed)/i,
+      /^\s*$/,  // Empty line
+      /^allergen/i,
+      /^free\s+of/i,
+      /^does\s+not\s+contain/i
+    ];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim().toLowerCase();
       
-      // Start of ingredients section - more patterns
-      if (trimmed.includes('ingredients') || 
-          trimmed.includes('other ingredients') ||
-          trimmed.includes('inactive ingredients') ||
-          trimmed.includes('non-medicinal ingredients') ||
-          trimmed.includes('excipients') ||
-          trimmed.match(/contains?:/) ||
-          trimmed.includes('capsule ingredients') ||
-          trimmed.includes('gelatin') ||
-          trimmed.includes('cellulose') ||
-          trimmed.includes('stearate')) {
+      console.log(`Line ${i}: "${line}" (trimmed: "${trimmed}")`);
+      
+      // Check if this line starts an ingredients section
+      const isIngredientSection = ingredientSectionPatterns.some(pattern => pattern.test(trimmed));
+      
+      if (isIngredientSection) {
+        console.log('Found ingredient section start at line', i);
         inIngredientsSection = true;
         
-        // Also extract from this line if it contains ingredients
-        const lineIngredients = this.extractIngredientsFromLine(line);
-        ingredients.push(...lineIngredients);
+        // Check if ingredients are on the same line after the colon
+        const colonIndex = line.indexOf(':');
+        if (colonIndex >= 0 && colonIndex < line.length - 1) {
+          const afterColon = line.substring(colonIndex + 1).trim();
+          if (afterColon.length > 0) {
+            console.log('Found ingredients on same line after colon:', afterColon);
+            ingredientLines.push(afterColon);
+          }
+        }
         continue;
       }
       
-      // End of ingredients section
-      if (inIngredientsSection && (
-        trimmed.includes('directions') ||
-        trimmed.includes('suggested use') ||
-        trimmed.includes('dosage') ||
-        trimmed.includes('warning') ||
-        trimmed.includes('caution') ||
-        trimmed.includes('storage') ||
-        trimmed.includes('keep out') ||
-        trimmed.includes('expir') ||
-        trimmed.includes('best by') ||
-        trimmed.includes('lot') ||
-        trimmed.includes('mfg') ||
-        trimmed.match(/^\s*$/) // Empty line
-      )) {
+      // Check if this line ends the ingredients section
+      const isEndSection = endSectionPatterns.some(pattern => pattern.test(trimmed));
+      
+      if (inIngredientsSection && isEndSection) {
+        console.log('Found ingredient section end at line', i);
         break;
       }
       
-      // Extract ingredients from current line
+      // Collect ingredient lines
       if (inIngredientsSection && trimmed.length > 0) {
-        const lineIngredients = this.extractIngredientsFromLine(line);
-        ingredients.push(...lineIngredients);
+        console.log('Adding ingredient line:', line);
+        ingredientLines.push(line);
       }
     }
     
-    // Also try to extract from anywhere in the text using common ingredient patterns
-    const commonIngredientPatterns = [
-      /\b(magnesium stearate|silicon dioxide|titanium dioxide|microcrystalline cellulose|vegetable cellulose|rice flour|maltodextrin|dicalcium phosphate|gelatin|hypromellose|stearic acid|calcium carbonate|soy lecithin|sunflower lecithin|carrageenan|polysorbate\s+\d+|sodium benzoate|potassium sorbate|artificial colors?|fd&c\s+\w+\s+no\.?\s*\d+|red\s+#?\d+|blue\s+#?\d+|yellow\s+#?\d+)\b/gi,
-      /\b(ascorbic acid|cholecalciferol|methylcobalamin|cyanocobalamin|folic acid|folate|alpha[\s-]?tocopherol|beta[\s-]?carotene)\b/gi,
-      /\b(organic\s+\w+|natural\s+flavor|artificial\s+flavor|natural\s+colors?)\b/gi,
-      /\b(magnesium oxide|calcium oxide|zinc oxide|iron sulfate|iron fumarate)\b/gi
-    ];
+    console.log('Collected ingredient lines:', ingredientLines);
     
-    commonIngredientPatterns.forEach(pattern => {
-      const matches = ocrText.match(pattern) || [];
-      ingredients.push(...matches.map(match => match.trim()));
-    });
+    // Parse ingredients from collected lines
+    for (const line of ingredientLines) {
+      const lineIngredients = this.extractIngredientsFromLine(line);
+      ingredients.push(...lineIngredients);
+    }
     
-    // Try to extract individual words that might be ingredients
-    const words = ocrText.toLowerCase().split(/\s+/);
-    const potentialIngredients = [
-      'gelatin', 'cellulose', 'stearate', 'dioxide', 'carbonate', 'maltodextrin', 
-      'lecithin', 'carrageenan', 'titanium', 'silicon', 'magnesium', 'calcium',
-      'talc', 'dextrose', 'sucrose', 'lactose', 'sorbitol', 'mannitol'
-    ];
-    
-    potentialIngredients.forEach(potential => {
-      if (words.includes(potential)) {
-        ingredients.push(potential);
-      }
-    });
+    // Fallback: search entire text for common ingredients if no section found
+    if (ingredients.length === 0) {
+      console.log('No ingredient section found, using fallback extraction');
+      ingredients.push(...this.fallbackIngredientExtraction(ocrText));
+    }
     
     // Clean up and deduplicate
     const cleanedIngredients = ingredients
       .map(ing => ing.trim())
       .filter(ing => ing.length > 2)
-      .filter((ing, index, arr) => arr.indexOf(ing) === index) // Remove duplicates
-      .filter(ing => ing.toLowerCase() !== 'ingredients') // Remove the word "ingredients" itself
-      .filter(ing => !/^\d+$/.test(ing)) // Remove pure numbers
-      .filter(ing => !ing.match(/^[%\d\s]+$/)) // Remove percentages and numbers
-      .slice(0, 20); // Limit to prevent too many false positives
+      .filter(ing => !ing.match(/^\d+[\s\w]*$/)) // Remove pure numbers/dosages
+      .filter(ing => !ing.match(/^[%\d\s.,-]+$/)) // Remove percentages and numbers
+      .filter(ing => ing.toLowerCase() !== 'ingredients') // Remove the word "ingredients"
+      .filter(ing => ing.toLowerCase() !== 'contains') // Remove the word "contains"
+      .filter((ing, index, arr) => arr.findIndex(x => x.toLowerCase() === ing.toLowerCase()) === index) // Remove duplicates
+      .slice(0, 15); // Reasonable limit
     
-    console.log('Extracted ingredients:', cleanedIngredients);
+    console.log('Final cleaned ingredients:', cleanedIngredients);
     return cleanedIngredients;
   }
   
   private static extractIngredientsFromLine(line: string): string[] {
-    return line
-      .split(/[,;\.:]/) // Split by punctuation
+    console.log('Extracting from line:', line);
+    
+    // Clean the line
+    let cleaned = line
+      .replace(/[()[\]]/g, '') // Remove parentheses and brackets
+      .replace(/\band\b/gi, ',') // Replace "and" with comma
+      .trim();
+    
+    // Split by common delimiters
+    const ingredients = cleaned
+      .split(/[,;\.]+/)
       .map(ing => ing.trim())
-      .map(ing => ing.replace(/[()[\]]/g, '')) // Remove parentheses/brackets
-      .map(ing => ing.replace(/\d+\s*mg|\d+\s*mcg|\d+\s*g|\d+\s*iu/gi, '')) // Remove dosages
-      .map(ing => ing.trim())
-      .filter(ing => ing.length > 2) // Must be at least 3 characters
-      .filter(ing => !/^\d+$/.test(ing)) // Remove pure numbers
-      .filter(ing => !/^[%\d\s]+$/.test(ing)) // Remove percentages and numbers
-      .filter(ing => !ing.match(/^\d+\s*(mg|mcg|g|iu|ml)$/i)); // Remove standalone dosages
+      .filter(ing => ing.length > 0)
+      .filter(ing => !ing.match(/^\d+/)) // Remove items starting with numbers
+      .filter(ing => !ing.match(/^(mg|mcg|g|iu|ui)\b/i)) // Remove units
+      .map(ing => {
+        // Clean up each ingredient
+        return ing
+          .replace(/^\W+/, '') // Remove leading non-word chars
+          .replace(/\W+$/, '') // Remove trailing non-word chars
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim();
+      })
+      .filter(ing => ing.length > 2);
+    
+    console.log('Extracted ingredients from line:', ingredients);
+    return ingredients;
+  }
+  
+  private static fallbackIngredientExtraction(ocrText: string): string[] {
+    console.log('Running fallback ingredient extraction');
+    
+    const ingredients: string[] = [];
+    
+    // Common supplement ingredients to look for
+    const commonIngredients = [
+      'microcrystalline cellulose', 'vegetable cellulose', 'magnesium stearate', 
+      'silicon dioxide', 'titanium dioxide', 'rice flour', 'maltodextrin',
+      'dicalcium phosphate', 'calcium carbonate', 'gelatin', 'hypromellose',
+      'hydroxypropyl methylcellulose', 'stearic acid', 'soy lecithin', 
+      'sunflower lecithin', 'natural flavor', 'artificial flavor',
+      'ascorbic acid', 'cholecalciferol', 'methylcobalamin', 'cyanocobalamin',
+      'alpha tocopherol', 'beta carotene', 'folic acid', 'folate',
+      'natural colors', 'artificial colors', 'organic rice concentrate',
+      'carrageenan', 'polysorbate 80', 'sodium benzoate', 'potassium sorbate'
+    ];
+    
+    const lowerText = ocrText.toLowerCase();
+    
+    for (const ingredient of commonIngredients) {
+      if (lowerText.includes(ingredient.toLowerCase())) {
+        console.log('Found common ingredient in fallback:', ingredient);
+        ingredients.push(ingredient);
+      }
+    }
+    
+    // Also look for individual words that might be ingredients
+    const words = ocrText.toLowerCase().split(/\s+/);
+    const potentialIngredients = [
+      'gelatin', 'cellulose', 'stearate', 'dioxide', 'carbonate', 'maltodextrin',
+      'lecithin', 'carrageenan', 'titanium', 'silicon', 'magnesium', 'calcium',
+      'talc', 'dextrose', 'sucrose', 'lactose', 'sorbitol', 'mannitol', 'xylitol'
+    ];
+    
+    for (const potential of potentialIngredients) {
+      if (words.includes(potential) && !ingredients.some(ing => ing.toLowerCase().includes(potential))) {
+        console.log('Found potential ingredient in fallback:', potential);
+        ingredients.push(potential);
+      }
+    }
+    
+    return ingredients;
   }
   
   static generateCleanlinessReport(analysis: IngredientAnalysis[], score: CleanlinessScore): string {
